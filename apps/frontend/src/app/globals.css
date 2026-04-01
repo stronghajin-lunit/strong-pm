@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --surface-2: #F2F1EE;
+  --surface-3: #ECEAE6;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-md: rgba(0, 0, 0, 0.13);
+  --text-1: #0F0F0E;
+  --text-2: #5C5B58;
+  --text-3: #9B9A97;
+  --accent: #1F3F8E;
+  --accent-light: #E8EDF8;
+  --accent-mid: #C5D3EE;
+  --teal: #0F6E56;
+  --teal-light: #E1F5EE;
+  --amber: #854F0B;
+  --amber-light: #FAEEDA;
+  --coral: #993C1D;
+  --coral-light: #FAECE7;
+  --purple: #534AB7;
+  --purple-light: #EEEDFE;
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --r: 8px;
+  --rl: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 3px;
+}

@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StrongPM</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F6F3;--surface:#FFF;--surface-2:#F2F1EE;--surface-3:#ECEAE6;
+  --border:rgba(0,0,0,0.08);--border-md:rgba(0,0,0,0.13);
+  --text-1:#0F0F0E;--text-2:#5C5B58;--text-3:#9B9A97;
+  --accent:#1F3F8E;--accent-light:#E8EDF8;--accent-mid:#C5D3EE;
+  --teal:#0F6E56;--teal-light:#E1F5EE;
+  --amber:#854F0B;--amber-light:#FAEEDA;
+  --coral:#993C1D;--coral-light:#FAECE7;
+  --purple:#534AB7;--purple-light:#EEEDFE;
+  --slack:#4A154B;
+  --r:8px;--rl:12px;
+  --shm:0 4px 16px rgba(0,0,0,0.1);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-1);font-size:13px;line-height:1.5;overflow:hidden;height:100vh}
+.app{display:flex;height:100vh}
+
+/* SIDEBAR */
+.sidebar{width:224px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh}
+.logo{padding:14px 16px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.logo-mark{width:26px;height:26px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-mark svg{width:13px;height:13px;fill:#fff}
+.logo-text{font-size:14px;font-weight:600;letter-spacing:-0.3px}
+.snav{padding:8px;border-bottom:1px solid var(--border)}
+.ni{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);cursor:pointer;color:var(--text-2);font-size:13px;font-weight:500;transition:background .15s;user-select:none}
+.ni:hover{background:var(--surface-2)}
+.ni.active{background:var(--accent-light);color:var(--accent)}
+.ni svg{width:14px;height:14px;flex-shrink:0}
+.ni.sub{padding-left:22px;font-size:12px}
+.nav-divider{height:1px;background:var(--border);margin:4px 0}
+.nav-section{padding:8px 8px 2px}
+.nav-sec-hdr{display:flex;align-items:center;gap:5px;padding:3px 8px 5px;cursor:pointer;user-select:none}
+.nav-sec-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;flex:1}
+.nav-sec-toggle{color:var(--text-3);transition:transform .18s;display:flex}
+.nav-sec-toggle.open{transform:rotate(0deg)}
+.nav-sec-toggle.closed{transform:rotate(-90deg)}
+.nav-sec-items{display:flex;flex-direction:column;gap:1px}
+.ssec{padding:8px 8px 4px;flex:1;overflow-y:auto}
+.ssl{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;padding:0 8px 6px}
+.pi{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);cursor:pointer;transition:background .15s}
+.pi:hover{background:var(--surface-2)}
+.pi.active{background:var(--accent-light)}
+.pdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pname{font-size:13px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptag{font-size:10px;font-weight:500;padding:1px 6px;border-radius:10px;flex-shrink:0}
+.ta{background:var(--teal-light);color:var(--teal)}
+.tp{background:var(--amber-light);color:var(--amber)}
+.td{background:var(--surface-3);color:var(--text-3)}
+.sadd{display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:12px;color:var(--text-3);cursor:pointer;transition:color .15s;border-top:1px solid var(--border)}
+.sadd:hover{color:var(--accent)}
+.sfooter{padding:8px;border-top:1px solid var(--border)}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.topbar{height:46px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;padding:0 16px;gap:6px}
+.topbar-title{font-size:14px;font-weight:600;flex:1}
+.topbar-actions{display:flex;align-items:center;gap:2px}
+.ib{width:30px;height:30px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:transparent;color:var(--text-2);transition:background .15s;position:relative}
+.ib:hover{background:var(--surface-2)}
+.ib svg{width:15px;height:15px}
+.ndot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--coral);border:1.5px solid var(--surface)}
+
+/* DROPDOWN */
+.dd{position:absolute;top:46px;right:0;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--rl);box-shadow:var(--shm);z-index:200;display:none}
+.dd.open{display:block}
+.add{width:340px;max-height:460px;overflow-y:auto}
+.sdd{width:440px;max-height:540px;overflow-y:auto}
+.ddh{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ddt{font-size:13px;font-weight:600}
+.ai{display:flex;align-items:flex-start;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.ai:last-child{border-bottom:none}
+.ai:hover{background:var(--surface-2)}
+.adot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.atm{font-size:13px;color:var(--text-1);flex:1}
+.amet{font-size:11px;color:var(--text-3);margin-top:1px}
+.atime{font-size:11px;color:var(--text-3);flex-shrink:0}
+.asr{display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border)}
+.asr:last-child{border-bottom:none}
+.asl{font-size:13px;flex:1}
+.assl{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;padding:9px 16px 3px}
+.sdtabs{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border)}
+.sdt{padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-2);transition:background .15s}
+.sdt:hover{background:var(--surface-2)}
+.sdt.active{background:var(--accent-light);color:var(--accent)}
+.sdb{padding:10px}
+.sdsl{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 3px}
+.sdr{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:var(--r)}
+.sdr:hover{background:var(--surface-2)}
+.sdrl{flex:1}
+.sdrla{font-size:13px;font-weight:500}
+.sdrlb{font-size:11px;color:var(--text-3);margin-top:1px}
+.tg{position:relative;width:34px;height:19px;flex-shrink:0}
+.tg input{opacity:0;width:0;height:0}
+.tgs{position:absolute;inset:0;background:var(--surface-3);border-radius:10px;cursor:pointer;transition:background .2s}
+.tgs::before{content:'';position:absolute;width:13px;height:13px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.tg input:checked+.tgs{background:var(--teal)}
+.tg input:checked+.tgs::before{transform:translateX(15px)}
+.si{background:var(--surface-2);border:1px solid var(--border-md);border-radius:6px;padding:4px 8px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--text-1);cursor:pointer;outline:none}
+.bsm{padding:4px 9px;border-radius:6px;font-size:12px;font-weight:500;border:1px solid var(--border-md);background:transparent;color:var(--text-2);cursor:pointer;transition:background .15s}
+.bsm:hover{background:var(--surface-2)}
+.mbw{height:5px;background:var(--surface-3);border-radius:3px;flex:1;overflow:hidden}
+.mbf{height:100%;border-radius:3px;background:var(--accent)}
+
+/* HOME */
+.home-view{flex:1;overflow-y:auto;padding:24px 28px;display:none}
+.home-view.active{display:block}
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+.hdr h1{font-size:20px;font-weight:600;letter-spacing:-.4px}
+.hdr p{font-size:12px;color:var(--text-3);margin-top:2px}
+.bp{display:flex;align-items:center;gap:5px;background:var(--accent);color:#fff;padding:7px 12px;border-radius:var(--r);font-size:13px;font-weight:500;border:none;cursor:pointer;transition:opacity .15s}
+.bp:hover{opacity:.9}
+.bp svg{width:13px;height:13px}
+.sr-stat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;max-width:340px}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px}
+.sc .l{font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.sc .v{font-size:26px;font-weight:600;letter-spacing:-.5px}
+.sc .s{font-size:11px;color:var(--text-3);margin-top:3px}
+.sc.av .v{color:var(--teal)}
+.sl{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px}
+.pg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.pc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.pc:hover{box-shadow:var(--shm);border-color:var(--border-md)}
+.pch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px}
+.pci{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
+.pcn{font-size:14px;font-weight:600;margin-bottom:3px;letter-spacing:-.2px}
+.pcd{font-size:11px;color:var(--text-3);margin-bottom:12px;line-height:1.5}
+.pcm{display:flex;align-items:center;justify-content:space-between}
+.pct{font-size:10px;font-weight:500;padding:2px 7px;border-radius:10px}
+.pdate{font-size:10px;color:var(--text-3)}
+.pbw{height:3px;background:var(--surface-3);border-radius:2px;margin-bottom:9px;overflow:hidden}
+.pbf{height:100%;border-radius:2px}
+
+/* PR TABLE */
+.prt{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.prt th{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;text-align:left;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.prt td{padding:9px 12px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.prt tr:last-child td{border-bottom:none}
+.prt tr:hover td{background:var(--surface-2)}
+.ptb{display:inline-flex;font-size:10px;font-weight:600;padding:2px 6px;border-radius:7px}
+.ptitle{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;display:block}
+.pdesc{font-size:10px;color:var(--text-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;display:block}
+.prepo{font-size:10px;color:var(--text-3);font-family:'DM Mono',monospace}
+.pdate2{font-size:10px;color:var(--text-3);white-space:nowrap}
+.pps{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;font-family:'DM Sans',sans-serif;color:var(--text-1);cursor:pointer;outline:none;min-width:130px;transition:border-color .15s}
+.pps.assigned{border-color:var(--teal);background:var(--teal-light);color:var(--teal)}
+
+/* WORKSPACE */
+.workspace-view{flex:1;display:none;overflow:hidden}
+.workspace-view.active{display:flex}
+.cc{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.wfp{background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;transition:height .2s ease}
+.wfp.exp{height:160px}
+.wfp.col{height:38px}
+.wftb{height:38px;display:flex;align-items:center;padding:0 16px;gap:8px;cursor:pointer;user-select:none}
+.wfpl{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;flex:1}
+.wftog{color:var(--text-3);transition:transform .2s;display:flex;align-items:center}
+.wftog.col{transform:rotate(180deg)}
+.wfc{padding:2px 16px 10px;overflow:hidden}
+.wfp.col .wfc{display:none}
+.ng{display:flex;align-items:center;height:100px}
+.wn{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.wnb{width:108px;padding:7px 9px;background:var(--surface);border:1.5px solid var(--border-md);border-radius:var(--r);transition:all .15s;text-align:center}
+.wn:hover .wnb{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.wn.sel .wnb{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 0 3px var(--accent-light)}
+.wn.run .wnb{border-color:var(--amber);background:var(--amber-light)}
+.wn.done .wnb{border-color:var(--teal);background:var(--teal-light)}
+.wn.hitl .wnb{border-color:var(--coral);background:var(--coral-light);animation:ph 1.8s ease-in-out infinite}
+@keyframes ph{0%,100%{box-shadow:0 0 0 0 rgba(153,60,29,.2)}50%{box-shadow:0 0 0 5px rgba(153,60,29,0)}}
+.wnn{font-size:10px;font-weight:600;color:var(--text-3);font-family:'DM Mono',monospace}
+.wnt{font-size:11px;font-weight:600;color:var(--text-1);margin-top:1px}
+.wns{font-size:10px;font-weight:500;padding:1px 5px;border-radius:7px;margin-top:2px;display:inline-block}
+.si0{background:var(--surface-3);color:var(--text-3)}
+.sd0{background:var(--teal-light);color:var(--teal)}
+.sr0{background:var(--amber-light);color:var(--amber)}
+.sh0{background:var(--coral-light);color:var(--coral)}
+.wconn{display:flex;align-items:center;padding:0 5px}
+.warr{display:flex;align-items:center;gap:2px;color:var(--text-3)}
+.wal{width:32px;height:1.5px;background:var(--border-md)}
+.warr svg{width:9px;height:9px}
+.dp{flex:1;overflow-y:auto;background:var(--bg)}
+.di{padding:18px}
+.ah{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px}
+.aht{flex:1}
+.ahtit{font-size:14px;font-weight:600;letter-spacing:-.3px;margin-bottom:2px}
+.ahdesc{font-size:11px;color:var(--text-3);line-height:1.5}
+.ahact{display:flex;gap:7px;flex-shrink:0}
+.br{display:flex;align-items:center;gap:5px;background:var(--accent);color:#fff;padding:6px 12px;border-radius:var(--r);font-size:12px;font-weight:500;border:none;cursor:pointer;transition:opacity .15s}
+.br:hover{opacity:.88}
+.bsec{display:flex;align-items:center;gap:5px;background:transparent;color:var(--text-2);padding:6px 10px;border-radius:var(--r);font-size:12px;font-weight:500;border:1px solid var(--border-md);cursor:pointer;transition:background .15s}
+.bsec:hover{background:var(--surface-2)}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.cg3{grid-template-columns:1fr 1fr 1fr}
+.cca{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px}
+.cca.cl{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.cca.cl:hover{border-color:var(--accent-mid);box-shadow:0 0 0 3px var(--accent-light)}
+.cca.hc{border-color:var(--coral);background:#FFF9F8;cursor:pointer}
+.cca.hc:hover{box-shadow:0 0 0 3px var(--coral-light)}
+.clbl{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px}
+.ctit{font-size:13px;font-weight:600;margin-bottom:3px}
+.cdesc{font-size:11px;color:var(--text-2);line-height:1.5}
+.cact{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--accent);font-weight:500;margin-top:9px;cursor:pointer}
+.cact svg{width:11px;height:11px}
+
+/* CHAT PANEL */
+.chat-panel{width:300px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width .2s ease}
+.chat-panel.closed{width:0;overflow:hidden}
+.chdr{height:46px;flex-shrink:0;border-bottom:1px solid var(--border);padding:0 12px;display:flex;align-items:center;gap:8px}
+.cbdg{width:22px;height:22px;border-radius:5px;flex-shrink:0}
+.cname{font-size:13px;font-weight:600;flex:1}
+.cmsgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px}
+.msg{display:flex;flex-direction:column;gap:3px}
+.msg.ag{align-items:flex-start}
+.msg.us{align-items:flex-end}
+.mb{max-width:88%;padding:8px 11px;border-radius:9px;font-size:12px;line-height:1.5}
+.msg.ag .mb{background:var(--surface-2);color:var(--text-1);border-bottom-left-radius:3px}
+.msg.us .mb{background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+.mt{font-size:10px;color:var(--text-3);padding:0 3px}
+.chc{margin:2px 0;background:#FFF9F8;border:1px solid var(--coral);border-radius:9px;padding:9px 11px;max-width:92%}
+.cht{font-size:11px;font-weight:600;color:var(--coral);margin-bottom:3px}
+.chd{font-size:11px;color:var(--text-2);line-height:1.4;margin-bottom:7px}
+.chbs{display:flex;gap:5px}
+.hb{flex:1;padding:5px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid;cursor:pointer;text-align:center;transition:opacity .15s}
+.hb.ap{background:var(--teal);color:#fff;border-color:var(--teal)}
+.hb.rj{background:transparent;color:var(--text-2);border-color:var(--border-md)}
+.hb:hover{opacity:.85}
+.hb:disabled{opacity:.5;cursor:not-allowed}
+.cia{padding:9px;border-top:1px solid var(--border);display:flex;gap:5px;align-items:flex-end}
+.ci{flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-size:12px;font-family:'DM Sans',sans-serif;resize:none;outline:none;color:var(--text-1);max-height:70px;transition:border-color .15s}
+.ci:focus{border-color:var(--accent);background:var(--surface)}
+.cs{width:30px;height:30px;background:var(--accent);border:none;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.cs svg{width:13px;height:13px;fill:#fff}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:var(--rl);width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18);transform:translateY(10px);transition:transform .2s}
+.modal-overlay.open .modal{transform:translateY(0)}
+.mhdr{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.mhdr h2{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.mbody{padding:20px}
+.mfield{margin-bottom:16px}
+.mfield label{display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px}
+.mfield input,.mfield textarea,.mfield select{width:100%;background:var(--surface-2);border:1px solid var(--border-md);border-radius:6px;padding:8px 10px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text-1);outline:none;transition:border-color .15s;resize:none}
+.mfield input:focus,.mfield textarea:focus,.mfield select:focus{border-color:var(--accent);background:var(--surface)}
+.mfield input::placeholder,.mfield textarea::placeholder{color:var(--text-3)}
+.hint{font-size:11px;color:var(--text-3);margin-top:4px}
+.radio-group{display:flex;gap:8px;margin-top:4px}
+.radio-opt{flex:1;border:1.5px solid var(--border-md);border-radius:8px;padding:9px 12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px}
+.radio-opt:hover{border-color:var(--accent-mid);background:var(--accent-light)}
+.radio-opt.selected{border-color:var(--accent);background:var(--accent-light)}
+.radio-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.radio-opt.selected .radio-dot{border-color:var(--accent);background:var(--accent)}
+.radio-opt.selected .radio-dot::after{content:'';width:5px;height:5px;border-radius:50%;background:#fff}
+.radio-label{font-size:13px;font-weight:500}
+.radio-sub{font-size:11px;color:var(--text-3);margin-top:1px}
+.mfooter{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.btn-cancel{padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;border:1px solid var(--border-md);background:transparent;color:var(--text-2);cursor:pointer}
+.btn-create{padding:7px 16px;border-radius:var(--r);font-size:13px;font-weight:500;background:var(--accent);color:#fff;border:none;cursor:pointer}
+
+/* SIMPLE VIEWS */
+.simple-view{flex:1;overflow-y:auto;padding:24px 28px;display:none}
+.simple-view.active{display:block}
+.sv-hdr{margin-bottom:20px}
+.sv-hdr h1{font-size:20px;font-weight:600;letter-spacing:-.4px}
+.sv-hdr p{font-size:12px;color:var(--text-3);margin-top:3px}
+.sv-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;margin-bottom:12px}
+.sv-section-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px}
+.form-field{margin-bottom:14px}
+.form-field label{display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px}
+.form-field input,.form-field textarea,.form-field select{width:100%;background:var(--surface-2);border:1px solid var(--border-md);border-radius:6px;padding:8px 10px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text-1);outline:none;transition:border-color .15s;resize:none}
+.form-field input:focus,.form-field textarea:focus,.form-field select:focus{border-color:var(--accent);background:var(--surface)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hist-table{width:100%;border-collapse:collapse}
+.hist-table th{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;padding:8px 14px;text-align:left;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.hist-table td{padding:9px 14px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-table tr:hover td{background:var(--surface-2)}
+.badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:7px;display:inline-block}
+
+/* SLACK Q&A */
+.slack-view{flex:1;display:none;overflow:hidden;flex-direction:column}
+.slack-view.active{display:flex}
+.slack-topbar{height:46px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;padding:0 20px;gap:10px}
+.slack-ch{font-size:13px;font-weight:600;color:var(--slack);display:flex;align-items:center;gap:4px}
+.slack-ch-hash{font-size:16px;font-weight:700;opacity:.7}
+.slack-meta{font-size:11px;color:var(--text-3);flex:1}
+.slack-sync{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border-md);border-radius:6px;padding:4px 10px;cursor:pointer;transition:background .15s}
+.slack-sync:hover{background:var(--surface-3)}
+.slack-sync svg{width:12px;height:12px}
+.slack-body{flex:1;overflow:hidden;display:flex}
+.slack-list{width:100%;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column}
+.sq-filter-bar{display:flex;align-items:center;gap:6px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.sq-filter-btn{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid var(--border-md);background:transparent;color:var(--text-2);cursor:pointer;transition:all .15s}
+.sq-filter-btn:hover{background:var(--surface-2)}
+.sq-filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sq-count{font-size:11px;color:var(--text-3);margin-left:auto}
+.sq-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;transition:border-color .15s,box-shadow .15s;margin-bottom:8px}
+.sq-item:hover{border-color:var(--border-md);box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.sq-item.linked{border-color:var(--teal)}
+.sq-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.sq-avatar{width:32px;height:32px;border-radius:8px;background:var(--slack);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;font-family:'DM Mono',monospace}
+.sq-meta{flex:1}
+.sq-user{font-size:12px;font-weight:600}
+.sq-time{font-size:10px;color:var(--text-3);margin-left:6px;font-weight:400}
+.sq-emoji{font-size:12px;margin-left:4px}
+.sq-body{font-size:12px;color:var(--text-1);line-height:1.6;margin-bottom:10px;padding-left:42px}
+.sq-body .mention{color:var(--accent);font-weight:500}
+.sq-thread{padding-left:42px;margin-bottom:10px}
+.sq-thread-item{display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--border)}
+.sq-thread-item:first-child{border-top:none;padding-top:0}
+.sq-t-avatar{width:22px;height:22px;border-radius:5px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text-2);flex-shrink:0}
+.sq-t-body{flex:1}
+.sq-t-user{font-size:11px;font-weight:600}
+.sq-t-time{font-size:10px;color:var(--text-3);margin-left:5px}
+.sq-t-text{font-size:11px;color:var(--text-2);line-height:1.5;margin-top:1px}
+.sq-footer{padding-left:42px;display:flex;align-items:center;gap:8px}
+.sq-ai-tag{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:500;padding:3px 8px;border-radius:6px;background:var(--accent-light);color:var(--accent);white-space:nowrap}
+.sq-ai-tag svg{width:10px;height:10px}
+.sq-proj-sel select{padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border-md);background:var(--surface-2);font-family:'DM Sans',sans-serif;color:var(--text-1);outline:none;cursor:pointer;min-width:200px}
+.sq-proj-sel select:focus{border-color:var(--accent)}
+.sq-proj-sel select.linked{border-color:var(--teal);background:var(--teal-light);color:var(--teal)}
+
+/* DEPLOYMENT TRACKER */
+.dt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.dt-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px}
+.dt-stat .l{font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.dt-stat .v{font-size:24px;font-weight:600;letter-spacing:-.5px}
+.dt-stat .s{font-size:11px;color:var(--text-3);margin-top:3px}
+.dt-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.dt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px}
+.dt-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.dt-card-title{font-size:13px;font-weight:600}
+.dt-env{display:flex;flex-direction:column;gap:6px}
+.dt-env-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface-2);border-radius:6px}
+.dt-env-name{font-size:11px;font-weight:600;color:var(--text-2);min-width:48px}
+.dt-env-ver{font-size:11px;font-family:'DM Mono',monospace;color:var(--text-1);flex:1}
+.dt-env-date{font-size:10px;color:var(--text-3);white-space:nowrap}
+.dt-env-badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px}
+
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 16 16"><path d="M8 2L14 5.5V10.5L8 14L2 10.5V5.5L8 2Z"/></svg></div>
+    <span class="logo-text">StrongPM</span>
+  </div>
+
+  <!-- Top nav -->
+  <nav class="snav">
+    <div class="ni active" id="nav-home" onclick="showHome()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6L8 2L14 6V14H10V10H6V14H2V6Z"/></svg>
+      Home
+    </div>
+    <div class="nav-divider"></div>
+    <div class="ni" id="nav-pr" onclick="showPR()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><path d="M4 6v4M6 4h3a1 1 0 0 1 1 1v5"/></svg>
+      PR Tracker
+    </div>
+    <div class="ni" id="nav-slack" onclick="showView('slack-view','nav-slack','Slack Q&A Linker')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 2a1.5 1.5 0 0 0 0 3H7V3.5A1.5 1.5 0 0 0 5.5 2z"/><path d="M10.5 2a1.5 1.5 0 0 1 0 3H9V3.5A1.5 1.5 0 0 1 10.5 2z"/><path d="M2 6.5h5v2H2z"/><path d="M9 6.5h5v2H9z"/><path d="M5.5 9a1.5 1.5 0 0 0-1.5 1.5V12h3v-1.5A1.5 1.5 0 0 0 5.5 9z"/><path d="M10.5 9a1.5 1.5 0 0 1 1.5 1.5V12H9v-1.5A1.5 1.5 0 0 1 10.5 9z"/></svg>
+      Slack Q&A Linker
+    </div>
+    <div class="ni" id="nav-sprint" onclick="showView('sprint-report-view','nav-sprint','Sprint Report Creator')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><line x1="5" y1="7" x2="5" y2="11"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="11" y1="8" x2="11" y2="11"/></svg>
+      Sprint Report Creator
+    </div>
+  </nav>
+
+  <!-- Scrollable sections -->
+  <div class="ssec">
+    <!-- Projects section -->
+    <div class="ssl" style="margin-top:4px">Projects</div>
+    <div class="pi" id="pi-0" onclick="goWorkflow(0)"><div class="pdot" style="background:var(--teal)"></div><span class="pname">Payment Module Refactor</span><span class="ptag ta">Active</span></div>
+    <div class="pi" id="pi-1" onclick="goWorkflow(1)"><div class="pdot" style="background:var(--amber)"></div><span class="pname">Auth System Redesign</span><span class="ptag tp">Planning</span></div>
+    <div class="pi" id="pi-2" onclick="goWorkflow(2)"><div class="pdot" style="background:var(--text-3)"></div><span class="pname">Dashboard v2</span><span class="ptag td">Done</span></div>
+
+    <!-- Release section -->
+    <div style="height:1px;background:var(--border);margin:8px 0"></div>
+    <div class="nav-sec-hdr" onclick="toggleNavSection('release-items','release-toggle')">
+      <span class="nav-sec-label">Releases</span>
+      <span class="nav-sec-toggle open" id="release-toggle">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="11" height="11"><polyline points="4,6 8,10 12,6"/></svg>
+      </span>
+    </div>
+    <div class="nav-sec-items" id="release-items">
+      <div class="ni sub" id="nav-rn" onclick="showView('release-note-view','nav-rn','Release Note Creator')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
+        Release Note Creator
+      </div>
+      <div class="ni sub" id="nav-dt" onclick="showView('deployment-tracker-view','nav-dt','Release Deployment Tracker')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><polyline points="8,5 8,8 10,10"/></svg>
+        Deployment Tracker
+      </div>
+    </div>
+  </div>
+
+  <div class="sadd" onclick="openNewProjectModal()">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+    New Project
+  </div>
+  <div class="sfooter">
+    <div class="ni">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+      PM User
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Home</div>
+    <div class="topbar-actions">
+      <button class="ib" onclick="toggleDD('alarm')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2C5.8 2 4 3.8 4 6v4l-1.5 2h11L12 10V6c0-2.2-1.8-4-4-4Z"/><path d="M6.5 13.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5"/></svg>
+        <div class="ndot" id="ndot"></div>
+      </button>
+      <button class="ib" onclick="toggleDD('settings')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1 1M11.8 11.8l1 1M3.2 12.8l1-1M11.8 4.2l1-1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Alarm dropdown -->
+  <div class="dd add" id="alarm-dropdown">
+    <div class="ddh"><span class="ddt">Notifications</span><button class="ib" onclick="toggleDD('alarm')" style="width:22px;height:22px"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button></div>
+    <div class="ai"><div class="adot" style="background:var(--coral)"></div><div style="flex:1"><div class="atm">#7 TP Tracker — HITL Pending</div><div class="amet">Payment Module Refactor · Implementation Plan approval required</div></div><div class="atime">14:23</div></div>
+    <div class="ai"><div class="adot" style="background:var(--teal)"></div><div style="flex:1"><div class="atm">#1 Kickoff — PRD Generated</div><div class="amet">Auth System Redesign · Saved to Confluence</div></div><div class="atime">Yesterday</div></div>
+    <div class="assl">Notification Settings</div>
+    <div class="asr"><span class="asl">HITL pending</span><label class="tg"><input type="checkbox" checked><span class="tgs"></span></label></div>
+    <div class="asr"><span class="asl">Agent run complete</span><label class="tg"><input type="checkbox" checked><span class="tgs"></span></label></div>
+    <div class="asr"><span class="asl">Error occurred</span><label class="tg"><input type="checkbox" checked><span class="tgs"></span></label></div>
+  </div>
+
+  <!-- Settings dropdown -->
+  <div class="dd sdd" id="settings-dropdown">
+    <div class="ddh"><span class="ddt">Settings</span><button class="ib" onclick="toggleDD('settings')" style="width:22px;height:22px"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button></div>
+    <div class="sdtabs"><div class="sdt active" onclick="sdTab(this,'hitl')">HITL Settings</div><div class="sdt" onclick="sdTab(this,'memory')">Memory</div></div>
+    <div class="sdb">
+      <div id="sd-hitl">
+        <div class="sdsl">#1 Kickoff</div>
+        <div class="sdr"><div class="sdrl"><div class="sdrla">PM Q&A Loop</div><div class="sdrlb">PM answers kickoff questions directly</div></div><label class="tg"><input type="checkbox" checked><span class="tgs"></span></label></div>
+        <div class="sdr"><div class="sdrl"><div class="sdrla">PRD Draft Review</div><div class="sdrlb">PM confirms before saving to Confluence</div></div><label class="tg"><input type="checkbox" checked><span class="tgs"></span></label></div>
+        <div class="sdsl">#7 TP Tracker</div>
+        <div class="sdr"><div class="sdrl"><div class="sdrla">Implementation Plan Approval</div><div class="sdrlb">PM approval required after completion criteria</div></div><label class="tg"><input type="checkbox" checked><span class="tgs"></span></label></div>
+      </div>
+      <div id="sd-memory" style="display:none">
+        <div class="sdsl">Embedding Cache Usage</div>
+        <div class="sdr"><div class="sdrl"><div class="sdrla">Total Usage</div></div><div style="display:flex;align-items:center;gap:8px;flex:1;max-width:200px"><div class="mbw"><div class="mbf" style="width:42%"></div></div><span style="font-size:11px;color:var(--text-2);white-space:nowrap">210/500 MB</span></div></div>
+        <div class="sdsl">Clear Cache</div>
+        <div class="sdr"><div class="sdrl"><div class="sdrla">Select Project</div></div><div style="display:flex;gap:5px"><select class="si"><option>Payment Module Refactor</option><option>Auth System Redesign</option><option>All Projects</option></select><button class="bsm" onclick="alert('Confirm cache clear')">Clear</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="home-view active" id="home-view">
+    <div class="hdr">
+      <div><h1>Projects</h1><p>3 total · 1 active</p></div>
+      <button class="bp" onclick="openNewProjectModal()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+        New Project
+      </button>
+    </div>
+    <div class="sr-stat">
+      <div class="sc"><div class="l">Total Projects</div><div class="v">3</div><div class="s">Active 1 · Planning 1 · Done 1</div></div>
+      <div class="sc av"><div class="l">Active</div><div class="v">1</div><div class="s">Payment Module Refactor</div></div>
+    </div>
+    <div class="sl">All Projects</div>
+    <div class="pg">
+      <div class="pc" onclick="goWorkflow(0)">
+        <div class="pch"><div><div class="pcn">Payment Module Refactor</div><div style="margin-top:3px"><span class="pct ta">Active</span></div></div><div class="pci" style="background:var(--teal-light)">💳</div></div>
+        <div class="pcd">Full refactor of PG integration and payment flow. PRD complete, TP tracking in progress.</div>
+        <div class="pbw"><div class="pbf" style="width:58%;background:var(--teal)"></div></div>
+        <div class="pcm"><span style="font-size:11px;color:var(--teal);font-weight:500">58% complete</span><span class="pdate">2h ago</span></div>
+      </div>
+      <div class="pc" onclick="goWorkflow(1)">
+        <div class="pch"><div><div class="pcn">Auth System Redesign</div><div style="margin-top:3px"><span class="pct tp">Planning</span></div></div><div class="pci" style="background:var(--amber-light)">🔐</div></div>
+        <div class="pcd">Full OAuth2 auth system redesign. Kickoff agent Q&A in progress.</div>
+        <div class="pbw"><div class="pbf" style="width:12%;background:var(--amber)"></div></div>
+        <div class="pcm"><span style="font-size:11px;color:var(--amber);font-weight:500">12% complete</span><span class="pdate">1d ago</span></div>
+      </div>
+      <div class="pc" onclick="goWorkflow(2)">
+        <div class="pch"><div><div class="pcn">Dashboard v2</div><div style="margin-top:3px"><span class="pct td">Done</span></div></div><div class="pci" style="background:var(--surface-3)">📊</div></div>
+        <div class="pcd">Analytics dashboard v2 shipped. Release note and retrospective complete.</div>
+        <div class="pbw"><div class="pbf" style="width:100%;background:var(--text-3)"></div></div>
+        <div class="pcm"><span style="font-size:11px;color:var(--text-3);font-weight:500">100% complete</span><span class="pdate">3w ago</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PR TRACKER -->
+  <div class="simple-view" id="pr-view">
+    <div class="sv-hdr"><h1>PR Tracker</h1><p>Recent Pull Requests automatically collected from GitHub.</p></div>
+    <table class="prt">
+      <thead><tr><th style="width:70px">Type</th><th>PR Title / Summary</th><th style="width:100px">Repo</th><th style="width:70px">Date</th><th style="width:160px">Linked Project</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ptb" style="background:var(--teal-light);color:var(--teal)">feat</span></td><td><span class="ptitle">feat/payment-gateway: Add PG integration API</span><span class="pdesc">KG Inicis & TossPayments endpoints, webhook handler</span></td><td><span class="prepo">backend</span></td><td class="pdate2">Today 13:42</td><td><select class="pps assigned" onchange="onPRC(this)"><option value="">— Select —</option><option value="0" selected>Payment Module Refactor</option><option value="1">Auth System Redesign</option><option value="2">Dashboard v2</option></select></td></tr>
+        <tr><td><span class="ptb" style="background:var(--coral-light);color:var(--coral)">fix</span></td><td><span class="ptitle">fix/refund-flow: Fix partial refund amount calc</span><span class="pdesc">Decimal rounding bug, per-currency handling added</span></td><td><span class="prepo">backend</span></td><td class="pdate2">Today 11:18</td><td><select class="pps assigned" onchange="onPRC(this)"><option value="">— Select —</option><option value="0" selected>Payment Module Refactor</option><option value="1">Auth System Redesign</option><option value="2">Dashboard v2</option></select></td></tr>
+        <tr><td><span class="ptb" style="background:var(--teal-light);color:var(--teal)">feat</span></td><td><span class="ptitle">feat/oauth2-token: Access/Refresh token issuance</span><span class="pdesc">JWT-based token issuance, Redis refresh token store</span></td><td><span class="prepo">auth-service</span></td><td class="pdate2">Yesterday 17:05</td><td><select class="pps assigned" onchange="onPRC(this)"><option value="">— Select —</option><option value="0">Payment Module Refactor</option><option value="1" selected>Auth System Redesign</option><option value="2">Dashboard v2</option></select></td></tr>
+        <tr><td><span class="ptb" style="background:var(--purple-light);color:var(--purple)">chore</span></td><td><span class="ptitle">chore/deps: Upgrade Node 18 → 20</span><span class="pdesc">Runtime version upgrade, CI pipeline update</span></td><td><span class="prepo">frontend</span></td><td class="pdate2">Yesterday 14:33</td><td><select class="pps" onchange="onPRC(this)"><option value="">— Select —</option><option value="0">Payment Module Refactor</option><option value="1">Auth System Redesign</option><option value="2">Dashboard v2</option></select></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SLACK Q&A LINKER -->
+  <div class="slack-view" id="slack-view">
+    <div class="slack-topbar">
+      <div class="slack-ch"><span class="slack-ch-hash">#</span>private-onco-squad</div>
+      <div class="slack-meta">Messages / thread replies tagged with :strong-pm: · auto-collected</div>
+      <div class="slack-sync" onclick="syncSlack()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8a7 7 0 1 0 1.5-4.3"/><polyline points="1,2 1,6 5,6"/></svg>
+        Sync
+      </div>
+    </div>
+    <div class="sq-filter-bar">
+      <button class="sq-filter-btn active" onclick="sqFilter(this,'all')">All</button>
+      <button class="sq-filter-btn" onclick="sqFilter(this,'unlinked')">Unlinked</button>
+      <button class="sq-filter-btn" onclick="sqFilter(this,'linked')">Linked</button>
+      <span class="sq-count" id="sq-count">4 messages</span>
+    </div>
+    <div class="slack-body">
+      <div class="slack-list" id="sq-list"></div>
+    </div>
+  </div>
+
+  <!-- RELEASE NOTE CREATOR -->
+  <div class="simple-view" id="release-note-view">
+    <div class="sv-hdr"><h1>Release Note Creator</h1><p>Auto-generate and publish release notes linked to a Jira version.</p></div>
+    <div class="sv-card" style="margin-bottom:12px">
+      <div class="sv-section-label" style="margin-bottom:14px">Configuration</div>
+      <div class="form-field">
+        <label style="display:flex;align-items:center;gap:5px">Include Projects <span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:6px;font-weight:400">Required</span></label>
+        <div id="rn-proj-options" style="display:flex;flex-direction:column;gap:6px;margin-top:2px">
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--border-md);border-radius:7px;cursor:pointer;transition:all .15s;font-weight:400" id="rn-proj-0"><input type="checkbox" value="0" onchange="onRNProj()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"><div class="pdot" style="background:var(--teal)"></div><span style="font-size:13px;flex:1">Payment Module Refactor</span><span class="ptag ta">Active</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--border-md);border-radius:7px;cursor:pointer;transition:all .15s;font-weight:400" id="rn-proj-1"><input type="checkbox" value="1" onchange="onRNProj()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"><div class="pdot" style="background:var(--amber)"></div><span style="font-size:13px;flex:1">Auth System Redesign</span><span class="ptag tp">Planning</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--border-md);border-radius:7px;cursor:pointer;transition:all .15s;font-weight:400" id="rn-proj-2"><input type="checkbox" value="2" onchange="onRNProj()" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"><div class="pdot" style="background:var(--text-3)"></div><span style="font-size:13px;flex:1">Dashboard v2</span><span class="ptag td">Done</span></label>
+        </div>
+        <div class="hint">Select one or more projects to include in this release note.</div>
+      </div>
+      <div class="form-field">
+        <label style="display:flex;align-items:center;gap:5px">AICP Jira Version <span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:6px;font-weight:400">Required</span></label>
+        <select id="rn-jira-ver"><option value="">— Select version —</option><option>v1.5.0 · Payment Module Refactor</option><option>v1.4.2 · Auth System Redesign</option><option>v1.3.0 · Dashboard v2</option><option>v1.2.1 · Hotfix patch</option></select>
+        <div class="hint">Issues are auto-collected based on Jira Fix Version.</div>
+      </div>
+      <div class="form-field" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:5px">Confluence Parent Page / Folder <span style="font-size:10px;background:var(--surface-3);color:var(--text-3);padding:1px 6px;border-radius:6px;font-weight:400">Optional</span></label>
+        <select id="rn-conf"><option value="">Default (Release Notes root)</option><option>PROJ / Release Notes / 2026</option><option>PROJ / Release Notes / 2025</option><option>TEAM / Product Updates</option></select>
+        <div class="hint">Defaults to the team's root release notes folder if left blank.</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:28px">
+      <button class="br" style="font-size:13px;padding:8px 18px" onclick="runReleaseNote()">
+        <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12"><polygon points="4,2 14,8 4,14"/></svg> Run
+      </button>
+    </div>
+    <div class="sv-section-label">Run History</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">
+      <table class="hist-table">
+        <thead><tr><th>Projects</th><th>Jira Version</th><th>Confluence Location</th><th>Requested</th><th>Status</th><th>Link</th></tr></thead>
+        <tbody id="rn-history-body">
+          <tr><td style="color:var(--text-2)">Payment Module · Dashboard v2</td><td><span style="font-weight:500">v1.3.0</span></td><td style="color:var(--text-2)">PROJ / Release Notes / 2026</td><td style="color:var(--text-3);white-space:nowrap">2026-03-21 14:02</td><td><span class="badge" style="background:var(--teal-light);color:var(--teal)">Done</span></td><td><span style="font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline">Confluence ↗</span></td></tr>
+          <tr><td style="color:var(--text-2)">Auth System Redesign</td><td><span style="font-weight:500">v1.2.0</span></td><td style="color:var(--text-2)">TEAM / Product Updates</td><td style="color:var(--text-3);white-space:nowrap">2026-02-28 16:30</td><td><span class="badge" style="background:var(--coral-light);color:var(--coral)">Error</span></td><td style="color:var(--text-3)">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DEPLOYMENT TRACKER -->
+  <div class="simple-view" id="deployment-tracker-view">
+    <div class="sv-hdr"><h1>Release Deployment Tracker</h1><p>Select a Jira version to analyze ticket and deployment status across repos.</p></div>
+
+    <!-- Input -->
+    <div class="sv-card" style="margin-bottom:12px">
+      <div class="sv-section-label" style="margin-bottom:14px">Configuration</div>
+      <div class="form-field" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:5px">AICP Jira Version <span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:6px;font-weight:400">Required</span></label>
+        <select id="dt-jira-ver">
+          <option value="">— Select version —</option>
+          <option value="aicp-0401">AICP Monthly 26-04-01</option>
+          <option value="odm-0401">ODM Monthly 26-04-01</option>
+          <option value="aicp-0301">AICP Monthly 26-03-01</option>
+          <option value="odm-0301">ODM Monthly 26-03-01</option>
+        </select>
+        <div class="hint">Issues are collected based on Jira Fix Version. PRs and merge status are cross-referenced from GitHub.</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+      <button class="br" style="font-size:13px;padding:8px 18px" onclick="runDT()">
+        <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12"><polygon points="4,2 14,8 4,14"/></svg> Run
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="dt-results" style="display:none">
+
+      <!-- Summary stats -->
+      <div class="sv-section-label" id="dt-result-title">Results</div>
+      <div id="dt-summary-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px"></div>
+
+      <!-- Analysis blocks -->
+      <div id="dt-analysis-blocks"></div>
+
+    </div>
+
+    <!-- Empty state -->
+    <div id="dt-empty" style="background:var(--surface);border:1px dashed var(--border-md);border-radius:var(--rl);padding:40px 20px;text-align:center;color:var(--text-3)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" width="28" height="28" style="margin-bottom:10px;opacity:.4"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">No results yet</div>
+      <div style="font-size:12px">Select a Jira version and click Run to analyze deployment status.</div>
+    </div>
+  </div>
+
+  <!-- SPRINT REPORT CREATOR -->
+  <div class="simple-view" id="sprint-report-view">
+    <div class="sv-hdr"><h1>Sprint Report Creator</h1><p>Auto-generate sprint reports from Jira sprint data.</p></div>
+    <div class="sv-card" style="margin-bottom:12px">
+      <div class="sv-section-label" style="margin-bottom:14px">Configuration</div>
+      <div class="form-field" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:5px">Jira Sprint <span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:6px;font-weight:400">Required</span></label>
+        <select id="sr-jira-sprint"><option value="">— Select sprint —</option><option>Sprint 14 · Payment Module Refactor (Active)</option><option>Sprint 13 · Payment Module Refactor (Done)</option><option>Sprint 4 · Auth System Redesign (Active)</option><option>Sprint 3 · Auth System Redesign (Done)</option><option>Sprint 22 · Dashboard v2 (Done)</option></select>
+        <div class="hint">Completed and incomplete issues are auto-collected from the Jira board sprint.</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:28px">
+      <button class="br" style="font-size:13px;padding:8px 18px" onclick="runSprintReport()">
+        <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12"><polygon points="4,2 14,8 4,14"/></svg> Run
+      </button>
+    </div>
+    <div class="sv-section-label">Run History</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">
+      <table class="hist-table">
+        <thead><tr><th>Jira Sprint</th><th>Requested</th><th>Status</th><th>Link</th></tr></thead>
+        <tbody id="sr-history-body">
+          <tr><td><span style="font-weight:500">Sprint 13</span> · Payment Module Refactor</td><td style="color:var(--text-3);white-space:nowrap">2026-03-24 11:20</td><td><span class="badge" style="background:var(--teal-light);color:var(--teal)">Done</span></td><td><span style="font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline">Confluence ↗</span></td></tr>
+          <tr><td><span style="font-weight:500">Sprint 3</span> · Auth System Redesign</td><td style="color:var(--text-3);white-space:nowrap">2026-03-14 16:05</td><td><span class="badge" style="background:var(--teal-light);color:var(--teal)">Done</span></td><td><span style="font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline">Confluence ↗</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="workspace-view" id="workspace-view">
+    <div class="cc">
+      <div class="wfp exp" id="wfp">
+        <div class="wftb" onclick="toggleWF()">
+          <span class="wfpl" id="wfl">— Workflow</span>
+          <span class="wftog" id="wftog"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><polyline points="4,10 8,6 12,10"/></svg></span>
+        </div>
+        <div class="wfc">
+          <div class="ng">
+            <div class="wn done" id="node-1" onclick="selNode(1)"><div class="wnb"><div class="wnn">#1</div><div class="wnt">Kickoff · PRD</div><span class="wns sd0">Done</span></div></div>
+            <div class="wconn"><div class="warr"><div class="wal"></div><svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,2 8,5 2,8"/></svg></div></div>
+            <div class="wn hitl sel" id="node-7" onclick="selNode(7)"><div class="wnb"><div class="wnn">#7</div><div class="wnt">TP Tracker</div><span class="wns sh0">HITL Pending</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="dp"><div class="di" id="dc"></div></div>
+    </div>
+    <div class="chat-panel closed" id="cp">
+      <div class="chdr">
+        <div class="cbdg" id="cbdg" style="background:var(--teal-light)"></div>
+        <span class="cname" id="cname">#7 TP Tracker</span>
+        <button class="ib" onclick="closeChat()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
+      </div>
+      <div class="cmsgs" id="cmsgs"></div>
+      <div class="cia">
+        <textarea class="ci" placeholder="Type a message..." rows="1" id="ci" onkeydown="hKey(event)"></textarea>
+        <button class="cs" onclick="sendMsg()"><svg viewBox="0 0 16 16"><path d="M2 2l12 6-12 6 2-6-2-6z"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- NEW PROJECT MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="onOverlayClick(event)">
+  <div class="modal">
+    <div class="mhdr">
+      <h2>New Project</h2>
+      <button class="ib" onclick="closeModal()" style="width:26px;height:26px"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
+    </div>
+    <div class="mbody">
+      <div class="mfield">
+        <label style="display:flex;align-items:center;gap:5px">Product <span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:6px;font-weight:400">Required</span></label>
+        <select id="modal-product"><option value="">— Select product —</option><option>Annotation Admin</option><option>ODM</option></select>
+      </div>
+      <div class="mfield">
+        <label style="display:flex;align-items:center;gap:5px">Background <span style="font-size:10px;background:var(--surface-3);color:var(--text-3);padding:1px 6px;border-radius:6px;font-weight:400">Optional</span></label>
+        <textarea rows="3" placeholder="Describe the context and motivation for this project."></textarea>
+      </div>
+      <div class="mfield">
+        <label style="display:flex;align-items:center;gap:5px">High-level Requirement <span style="font-size:10px;background:var(--surface-3);color:var(--text-3);padding:1px 6px;border-radius:6px;font-weight:400">Optional</span></label>
+        <textarea rows="4" placeholder="Describe the core goals or requirements at a high level."></textarea>
+      </div>
+      <div class="mfield">
+        <label>Type</label>
+        <div class="radio-group">
+          <div class="radio-opt selected" id="opt-new" onclick="selectRadio('new')">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">New Feature</div><div class="radio-sub">Net-new functionality</div></div>
+          </div>
+          <div class="radio-opt" id="opt-imp" onclick="selectRadio('imp')">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">Improvement</div><div class="radio-sub">Enhancement or refactor of existing</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-create" onclick="createProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var NODES = {
+  1:{iconBg:'var(--accent-light)',name:'#1 Kickoff → PRD Generator',desc:'Learns repo & Jira context, predicts dev questions, runs PM Q&A, and auto-generates the PRD.',chatBg:'var(--accent-light)',chatN:'#1 Kickoff',extra:'<div class="cg cg3"><div class="cca"><div class="clbl">Status</div><div class="ctit" style="color:var(--teal)">PRD Generated</div><div class="cdesc">Saved to Confluence. 12 Q&A items.</div></div><div class="cca cl" onclick="openChat(1)"><div class="clbl">PRD Doc</div><div class="ctit">Payment Module Refactor PRD</div><div class="cdesc">8 sections · 2 open items.</div><div class="cact">View <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div></div><div class="cca"><div class="clbl">Q&A Log</div><div class="ctit">12 items complete</div><div class="cdesc">6 required · 2 skipped → Open Questions.</div></div></div>'},
+  7:{iconBg:'var(--teal-light)',name:'#7 Technical Plan Progress Tracker',desc:'Auto-tracks completion of Tech Plan items by mapping GitHub commit diffs to each line item.',chatBg:'var(--teal-light)',chatN:'#7 TP Tracker',extra:'<div class="cca hc" onclick="openChat(7)" style="margin-bottom:12px"><div class="clbl" style="color:var(--coral)">HITL Pending — click to review in chat</div><div class="ctit">Implementation Plan Approval Required</div><div class="cdesc">Please review and approve the completion criteria for DB / API / UI categories.</div><div class="cact" style="color:var(--coral)">Review in Chat <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div></div>'}
+};
+
+var PNS = ['Payment Module Refactor','Auth System Redesign','Dashboard v2'];
+var curFilter = 'all';
+var curN = 7;
+var chatOpen = false;
+var selType = 'new';
+var openDD = null;
+
+var SQ_ITEMS = [
+  {id:1,user:'KM',name:'Kang Minjun',time:'Today 10:14',text:'In the payment cancel API, partial refund amounts come in as KRW integers — how should TossPayments handle decimal rounding? <span class="mention">@strong-pm</span> :strong-pm:',threads:[{user:'YJ',name:'Yoon Jisoo',time:'10:31',text:'I hit the same issue. KG Inicis truncates to integer but Toss rounds, so results differ across PGs.'},{user:'PM',name:'PM Bot',time:'10:32',text:'Noted. Adding a per-currency rounding policy to Payment Module PRD §4.2.'}],aiProject:0,linked:0},
+  {id:2,user:'SH',name:'Song Hyunwoo',time:'Today 09:02',text:'The PRD seems to be missing the auto-reissue logic when the OAuth refresh token expires. How should we handle this? <span class="mention">@strong-pm</span> :strong-pm:',threads:[{user:'PM',name:'PM Bot',time:'09:15',text:'Good catch. Adding a refresh token auto-reissue section to the Auth System Redesign Confluence page.'}],aiProject:1,linked:1},
+  {id:3,user:'LJ',name:'Lee Jiyeon',time:'Yesterday 16:45',text:'After the Dashboard v2 deploy, some users are reporting broken chart rendering in Safari. Looks like a hotfix may be needed — <span class="mention">@strong-pm</span> :strong-pm: please confirm.',threads:[],aiProject:2,linked:2},
+  {id:4,user:'CW',name:'Choi Wonjun',time:'Yesterday 11:20',text:'Is it feasible to add social login (Google / Kakao) to the onboarding flow in the next sprint? <span class="mention">@strong-pm</span> :strong-pm:',threads:[{user:'KM',name:'Kang Minjun',time:'11:35',text:'This might overlap with the current auth redesign scope.'}],aiProject:null,linked:null}
+];
+
+function projOptHtml(selVal) {
+  var opts = '<option value="">— Select project —</option>';
+  PNS.forEach(function(n,i){ opts += '<option value="'+i+'"'+(selVal===i?' selected':'')+'>'+n+'</option>'; });
+  return opts;
+}
+
+function renderSQItems() {
+  var list = document.getElementById('sq-list');
+  var items = SQ_ITEMS.filter(function(it){
+    if(curFilter==='unlinked') return it.linked===null;
+    if(curFilter==='linked') return it.linked!==null;
+    return true;
+  });
+  document.getElementById('sq-count').textContent = items.length + ' message' + (items.length!==1?'s':'');
+  list.innerHTML = '';
+  items.forEach(function(it){
+    var threadHtml = '';
+    if(it.threads.length){
+      threadHtml = '<div class="sq-thread">';
+      it.threads.forEach(function(t){ threadHtml += '<div class="sq-thread-item"><div class="sq-t-avatar">'+t.user+'</div><div class="sq-t-body"><span class="sq-t-user">'+t.name+'</span><span class="sq-t-time">'+t.time+'</span><div class="sq-t-text">'+t.text+'</div></div></div>'; });
+      threadHtml += '</div>';
+    }
+    var aiTag = it.aiProject!==null
+      ? '<div class="sq-ai-tag"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>AI suggests: '+PNS[it.aiProject]+'</div>'
+      : '<div class="sq-ai-tag" style="background:var(--surface-3);color:var(--text-3)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="8"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg>No clear project match</div>';
+    var selClass = it.linked!==null?' linked':'';
+    var footerHtml = '<div class="sq-footer">'+aiTag+'<div class="sq-proj-sel"><select class="'+selClass+'" onchange="onSQLink('+it.id+',this)">'+projOptHtml(it.linked)+'</select></div></div>';
+    var div = document.createElement('div');
+    div.className = 'sq-item'+(it.linked!==null?' linked':'');
+    div.id = 'sqitem-'+it.id;
+    div.innerHTML = '<div class="sq-head"><div class="sq-avatar">'+it.user+'</div><div class="sq-meta"><span class="sq-user">'+it.name+'</span><span class="sq-time">'+it.time+'</span><span class="sq-emoji">:strong-pm:</span></div></div><div class="sq-body">'+it.text+'</div>'+threadHtml+footerHtml;
+    list.appendChild(div);
+  });
+}
+
+function onSQLink(id,sel){
+  var it = SQ_ITEMS.find(function(x){return x.id===id;});
+  if(!it) return;
+  it.linked = sel.value!==''?parseInt(sel.value):null;
+  sel.className = it.linked!==null?'linked':'';
+  var item = document.getElementById('sqitem-'+id);
+  if(item) item.classList.toggle('linked',it.linked!==null);
+  if(curFilter!=='all') renderSQItems();
+}
+
+function sqFilter(btn,f){
+  curFilter=f;
+  document.querySelectorAll('.sq-filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderSQItems();
+}
+
+function syncSlack(){
+  var btn=document.querySelector('.slack-sync');
+  btn.style.opacity='0.5'; btn.style.pointerEvents='none';
+  setTimeout(function(){ btn.style.opacity=''; btn.style.pointerEvents=''; renderSQItems(); },1200);
+}
+
+function toggleNavSection(itemsId, toggleId){
+  var items = document.getElementById(itemsId);
+  var toggle = document.getElementById(toggleId);
+  var isOpen = items.style.display!=='none';
+  items.style.display = isOpen?'none':'flex';
+  toggle.classList.toggle('open',!isOpen);
+  toggle.classList.toggle('closed',isOpen);
+}
+
+function hideAll(){
+  ['home-view','pr-view','slack-view','release-note-view','deployment-tracker-view','sprint-report-view','workspace-view'].forEach(function(id){
+    document.getElementById(id).classList.remove('active');
+  });
+  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('active');});
+  document.querySelectorAll('.pi').forEach(function(p){p.classList.remove('active');});
+  closeChat();
+}
+
+function showHome(){
+  hideAll();
+  document.getElementById('home-view').classList.add('active');
+  document.getElementById('topbar-title').textContent='Home';
+  document.getElementById('nav-home').classList.add('active');
+}
+
+function showPR(){
+  hideAll();
+  document.getElementById('pr-view').classList.add('active');
+  document.getElementById('topbar-title').textContent='PR Tracker';
+  document.getElementById('nav-pr').classList.add('active');
+}
+
+function showView(viewId,navId,title){
+  hideAll();
+  document.getElementById(viewId).classList.add('active');
+  document.getElementById(navId).classList.add('active');
+  document.getElementById('topbar-title').textContent=title;
+  if(viewId==='slack-view') renderSQItems();
+  closeAllDD();
+}
+
+function goWorkflow(idx){
+  hideAll();
+  document.getElementById('workspace-view').classList.add('active');
+  document.getElementById('topbar-title').textContent=PNS[idx];
+  document.getElementById('wfl').textContent=PNS[idx]+' — Workflow';
+  document.querySelectorAll('.pi')[idx].classList.add('active');
+  renderD(curN);
+  closeAllDD();
+}
+
+function toggleWF(){
+  var p=document.getElementById('wfp'),b=document.getElementById('wftog');
+  var e=p.classList.contains('exp');
+  p.classList.toggle('exp',!e); p.classList.toggle('col',e); b.classList.toggle('col',e);
+}
+
+function renderD(nid){
+  var d=NODES[nid];
+  document.getElementById('dc').innerHTML='<div class="ah"><div style="width:36px;height:36px;border-radius:9px;background:'+d.iconBg+';flex-shrink:0"></div><div class="aht"><div class="ahtit">'+d.name+'</div><div class="ahdesc">'+d.desc+'</div></div><div class="ahact"><button class="bsec" onclick="openChat('+nid+')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><path d="M2 2h12v9H2z"/><path d="M5 14l1.5-3H2"/></svg> Chat</button><button class="br" onclick="runAgent('+nid+')"><svg viewBox="0 0 16 16" fill="#fff" width="12" height="12"><polygon points="4,2 14,8 4,14"/></svg> Run</button></div></div>'+d.extra;
+}
+
+function selNode(nid){
+  document.querySelectorAll('.wn').forEach(function(n){n.className=n.className.replace(' sel','');});
+  document.getElementById('node-'+nid).className+=' sel';
+  curN=nid; renderD(nid);
+  if(chatOpen){document.getElementById('cbdg').style.background=NODES[nid].chatBg;document.getElementById('cname').textContent=NODES[nid].chatN;}
+}
+
+function openChat(nid){
+  if(nid) selNode(nid);
+  var d=NODES[curN];
+  document.getElementById('cbdg').style.background=d.chatBg;
+  document.getElementById('cname').textContent=d.chatN;
+  document.getElementById('cp').classList.remove('closed');
+  chatOpen=true;
+  var m=document.getElementById('cmsgs');
+  if(!m.hasChildNodes()) initMsgs(curN);
+}
+
+function closeChat(){ document.getElementById('cp').classList.add('closed'); chatOpen=false; }
+
+function initMsgs(nid){
+  var m=document.getElementById('cmsgs'); m.innerHTML='';
+  if(nid===7){ addMsg('ag',"Hello! I'm the #7 TP Tracker agent. I analyzed 3 PRs today."); addHC('HITL — Implementation Plan Approval Required','Completion criteria established for DB / API / UI categories.\n\nAPI: handler exists + HTTP method matches\nDB: migration file exists + table name matches\nUI: component file + data-testid present'); }
+  else { addMsg('ag',"Hello! I'm the #1 Kickoff agent. Enter a kickoff topic to get started."); }
+}
+
+function addMsg(role,text){
+  var m=document.getElementById('cmsgs');
+  var now=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  var d=document.createElement('div'); d.className='msg '+role;
+  d.innerHTML='<div class="mb">'+text.replace(/\n/g,'<br>')+'</div><div class="mt">'+now+'</div>';
+  m.appendChild(d); m.scrollTop=m.scrollHeight;
+}
+
+function addHC(title,desc){
+  var m=document.getElementById('cmsgs');
+  var now=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  var d=document.createElement('div'); d.className='msg ag';
+  d.innerHTML='<div class="chc"><div class="cht">⚠ '+title+'</div><div class="chd">'+desc.replace(/\n/g,'<br>')+'</div><div class="chbs"><button class="hb ap" onclick="approve(this)">Approve</button><button class="hb rj" onclick="reject(this)">Request Changes</button></div></div><div class="mt">'+now+'</div>';
+  m.appendChild(d); m.scrollTop=m.scrollHeight;
+}
+
+function approve(btn){
+  btn.closest('.chbs').querySelectorAll('button').forEach(function(b){b.disabled=true;});
+  addMsg('us','Approving the Implementation Plan.');
+  setTimeout(function(){
+    addMsg('ag','Approved! Starting diff analysis.');
+    var n=document.getElementById('node-7');
+    if(n){var s=n.querySelector('.wns');n.className=n.className.replace('hitl','run');s.className='wns sr0';s.textContent='Running';}
+    document.getElementById('ndot').style.display='none';
+  },400);
+}
+
+function reject(btn){
+  btn.closest('.chbs').querySelectorAll('button').forEach(function(b){b.disabled=true;});
+  addMsg('us','Please define the UI completion criteria more specifically.');
+  setTimeout(function(){ addMsg('ag','Understood. I will also include Storybook story files in addition to data-testid.'); },500);
+}
+
+function runAgent(id){
+  openChat(id);
+  var n=document.getElementById('node-'+id);
+  if(n){var s=n.querySelector('.wns');n.className=n.className.replace(/hitl|done|run/,'run');s.className='wns sr0';s.textContent='Running';}
+  addMsg('ag','Starting agent...');
+  setTimeout(function(){
+    if(n){var s=n.querySelector('.wns');n.className=n.className.replace('run','done');s.className='wns sd0';s.textContent='Done';}
+    addMsg('ag','Run complete.');
+  },3000);
+}
+
+function sendMsg(){
+  var i=document.getElementById('ci'),t=i.value.trim(); if(!t) return;
+  addMsg('us',t); i.value='';
+  setTimeout(function(){addMsg('ag','Got it.');},500);
+}
+
+function hKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+
+function closeAllDD(){
+  document.getElementById('alarm-dropdown').classList.remove('open');
+  document.getElementById('settings-dropdown').classList.remove('open');
+  openDD=null;
+}
+function toggleDD(n){
+  if(openDD===n){closeAllDD();return;}
+  closeAllDD();
+  document.getElementById(n+'-dropdown').classList.add('open');
+  openDD=n;
+}
+document.addEventListener('click',function(e){ if(!e.target.closest('.dd')&&!e.target.closest('.ib'))closeAllDD(); });
+function sdTab(el,n){
+  document.querySelectorAll('.sdt').forEach(function(t){t.classList.remove('active');}); el.classList.add('active');
+  ['hitl','memory'].forEach(function(t){ document.getElementById('sd-'+t).style.display=t===n?'block':'none'; });
+}
+function onPRC(s){ if(s.value) s.classList.add('assigned'); else s.classList.remove('assigned'); }
+
+function nowStr(){
+  var d=new Date(),pad=function(n){return String(n).padStart(2,'0');};
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+
+function onRNProj(){
+  var checks=document.querySelectorAll('#rn-proj-options input[type=checkbox]');
+  checks.forEach(function(cb){
+    var lbl=cb.closest('label');
+    lbl.style.borderColor=cb.checked?'var(--accent)':'var(--border-md)';
+    lbl.style.background=cb.checked?'var(--accent-light)':'';
+  });
+}
+
+function runReleaseNote(){
+  var checked=document.querySelectorAll('#rn-proj-options input[type=checkbox]:checked');
+  if(!checked.length){alert('Please select at least one project.');return;}
+  var ver=document.getElementById('rn-jira-ver').value;
+  if(!ver){alert('Please select a Jira Version.');return;}
+  var conf=document.getElementById('rn-conf').value||'Default (Release Notes root)';
+  var projNames=[];
+  checked.forEach(function(cb){projNames.push(PNS[parseInt(cb.value)]);});
+  var parts=ver.split('·');
+  var tb=document.getElementById('rn-history-body');
+  var row=document.createElement('tr');
+  row.innerHTML='<td style="color:var(--text-2)">'+projNames.join(' · ')+'</td><td><span style="font-weight:500">'+parts[0].trim()+'</span></td><td style="color:var(--text-2)">'+conf+'</td><td style="color:var(--text-3);white-space:nowrap">'+nowStr()+'</td><td><span class="badge" style="background:var(--amber-light);color:var(--amber)">Running</span></td><td style="color:var(--text-3)">—</td>';
+  tb.insertBefore(row,tb.firstChild);
+  setTimeout(function(){
+    var cells=row.querySelectorAll('td');
+    cells[4].innerHTML='<span class="badge" style="background:var(--teal-light);color:var(--teal)">Done</span>';
+    cells[5].innerHTML='<span style="font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline">Confluence ↗</span>';
+  },2500);
+}
+
+function runSprintReport(){
+  var sprint=document.getElementById('sr-jira-sprint').value;
+  if(!sprint){alert('Please select a Jira Sprint.');return;}
+  var parts=sprint.split('·');
+  var spLabel='<span style="font-weight:500">'+parts[0].trim()+'</span>'+(parts[1]?' · '+parts[1].split('(')[0].trim():'');
+  var tb=document.getElementById('sr-history-body');
+  var row=document.createElement('tr');
+  row.innerHTML='<td>'+spLabel+'</td><td style="color:var(--text-3);white-space:nowrap">'+nowStr()+'</td><td><span class="badge" style="background:var(--amber-light);color:var(--amber)">Running</span></td><td style="color:var(--text-3)">—</td>';
+  tb.insertBefore(row,tb.firstChild);
+  setTimeout(function(){
+    var cells=row.querySelectorAll('td');
+    cells[2].innerHTML='<span class="badge" style="background:var(--teal-light);color:var(--teal)">Done</span>';
+    cells[3].innerHTML='<span style="font-size:11px;color:var(--accent);cursor:pointer;text-decoration:underline">Confluence ↗</span>';
+  },2500);
+}
+
+/* ── Deployment Tracker ── */
+var DT_DATA = {
+  'aicp-0401': {
+    title: 'AICP Monthly 26-04-01',
+    stats: {total:32, withPR:26, noPR:6, merged:26, deployedThis:24, deployedPrev:2},
+    repos: ['scope-dp-console (v4.8.0)', 'scope-annotation-tool-front (v4.7.0)', 'scope-dp-annotation-manager (v3.8.0)'],
+    noPRTickets: ['RAD-9372','RAD-9362','RAD-9344','RAD-9343','RAD-9337','RAD-9218'],
+    unregisteredPRs: {count:5, tickets:['RAD-9241','RAD-9242','RAD-9281','RAD-9388','RAD-9397']},
+    ticketRows: [
+      {id:'RAD-9372',title:'Add annotation batch export',pr:null,merged:null,status:'no-pr'},
+      {id:'RAD-9362',title:'Fix label sync on refresh',pr:null,merged:null,status:'no-pr'},
+      {id:'RAD-9344',title:'Improve task queue performance',pr:null,merged:null,status:'no-pr'},
+      {id:'RAD-9343',title:'Update console sidebar layout',pr:null,merged:null,status:'no-pr'},
+      {id:'RAD-9337',title:'Handle empty state in list view',pr:null,merged:null,status:'no-pr'},
+      {id:'RAD-9218',title:'Fix date filter timezone offset',pr:null,merged:null,status:'no-pr'},
+      {id:'RAD-9241',title:'Add bulk assign feature',pr:'#1842',merged:true,status:'unregistered'},
+      {id:'RAD-9242',title:'Update keyboard shortcuts',pr:'#1843',merged:true,status:'unregistered'},
+      {id:'RAD-9281',title:'Fix drag-and-drop reorder',pr:'#1871',merged:true,status:'unregistered'},
+      {id:'RAD-9388',title:'Annotation tool zoom reset',pr:'#1924',merged:true,status:'unregistered'},
+      {id:'RAD-9397',title:'Console header accessibility',pr:'#1931',merged:true,status:'unregistered'},
+      {id:'RAD-9100',title:'Payment gateway webhook handler',pr:'#1801',merged:true,status:'deployed-this'},
+      {id:'RAD-9101',title:'Refund flow partial amount fix',pr:'#1802',merged:true,status:'deployed-this'},
+      {id:'RAD-9102',title:'PG type enum extension',pr:'#1803',merged:true,status:'deployed-this'},
+      {id:'RAD-9103',title:'Transaction list pagination',pr:'#1804',merged:true,status:'deployed-this'},
+      {id:'RAD-9104',title:'PaymentStatus badge component',pr:'#1805',merged:true,status:'deployed-this'},
+      {id:'RAD-9105',title:'Cancel endpoint handler',pr:'#1806',merged:true,status:'deployed-this'},
+      {id:'RAD-9106',title:'Refund table index migration',pr:'#1807',merged:true,status:'deployed-this'},
+      {id:'RAD-9107',title:'Payments composite index',pr:'#1808',merged:true,status:'deployed-this'},
+      {id:'RAD-9108',title:'PaymentForm component',pr:'#1809',merged:true,status:'deployed-this'},
+      {id:'RAD-9109',title:'RefundModal component',pr:'#1810',merged:true,status:'deployed-this'},
+      {id:'RAD-9110',title:'TransactionList component',pr:'#1811',merged:true,status:'deployed-this'},
+      {id:'RAD-9111',title:'Webhook signature validation',pr:'#1812',merged:true,status:'deployed-this'},
+      {id:'RAD-9112',title:'Async event queue integration',pr:'#1813',merged:true,status:'deployed-this'},
+      {id:'RAD-9113',title:'PG config env variables',pr:'#1814',merged:true,status:'deployed-this'},
+      {id:'RAD-9114',title:'Payment amount rounding policy',pr:'#1815',merged:true,status:'deployed-this'},
+      {id:'RAD-9115',title:'Currency handling KRW/USD',pr:'#1816',merged:true,status:'deployed-this'},
+      {id:'RAD-9116',title:'Retry logic on PG timeout',pr:'#1817',merged:true,status:'deployed-this'},
+      {id:'RAD-9117',title:'Error response normalization',pr:'#1818',merged:true,status:'deployed-this'},
+      {id:'RAD-9118',title:'Payments DB migration v2',pr:'#1819',merged:true,status:'deployed-this'},
+      {id:'RAD-9050',title:'Node 18→20 upgrade',pr:'#1750',merged:true,status:'deployed-prev'},
+      {id:'RAD-9051',title:'CI pipeline update',pr:'#1751',merged:true,status:'deployed-prev'}
+    ]
+  },
+  'odm-0401': {
+    title: 'ODM Monthly 26-04-01',
+    stats: {total:12, withPR:12, noPR:0, merged:12, deployedThis:7, deployedPrev:5},
+    repos: ['aip-oncology (v1.8.2)', 'oncology-data-management (v1.8.0)'],
+    noPRTickets: [],
+    unregisteredPRs: {count:9, breakdown:{needed:4, notNeeded:2, noTicket:3}, tickets:[]},
+    ticketRows: [
+      {id:'ODM-411',title:'Case-level QC workflow',pr:'#312',merged:true,status:'deployed-this'},
+      {id:'ODM-412',title:'Batch import validation rules',pr:'#313',merged:true,status:'deployed-this'},
+      {id:'ODM-413',title:'Pathology report parser',pr:'#314',merged:true,status:'deployed-this'},
+      {id:'ODM-414',title:'Study cohort filter UI',pr:'#315',merged:true,status:'deployed-this'},
+      {id:'ODM-415',title:'Oncology data export API',pr:'#316',merged:true,status:'deployed-this'},
+      {id:'ODM-416',title:'Patient timeline component',pr:'#317',merged:true,status:'deployed-this'},
+      {id:'ODM-417',title:'Lab value normalization',pr:'#318',merged:true,status:'deployed-this'},
+      {id:'ODM-380',title:'Staging environment config',pr:'#290',merged:true,status:'deployed-prev'},
+      {id:'ODM-381',title:'DB schema migration v3',pr:'#291',merged:true,status:'deployed-prev'},
+      {id:'ODM-382',title:'Auth token refresh flow',pr:'#292',merged:true,status:'deployed-prev'},
+      {id:'ODM-383',title:'Search index optimization',pr:'#293',merged:true,status:'deployed-prev'},
+      {id:'ODM-384',title:'Error logging enhancement',pr:'#294',merged:true,status:'deployed-prev'}
+    ]
+  }
+};
+
+var DT_FILTER = 'all';
+
+function runDT() {
+  var ver = document.getElementById('dt-jira-ver').value;
+  if (!ver) { alert('Please select a Jira version.'); return; }
+  var data = DT_DATA[ver];
+  if (!data) return;
+
+  document.getElementById('dt-empty').style.display = 'none';
+  document.getElementById('dt-results').style.display = 'block';
+  document.getElementById('dt-result-title').textContent = data.title + ' — Analysis';
+  DT_FILTER = 'all';
+
+  // Summary cards
+  var s = data.stats;
+  var cards = [
+    {l:'Total Jira Tickets',v:s.total,c:'var(--text-1)'},
+    {l:'Tickets with PR',v:s.withPR,c:'var(--teal)'},
+    {l:'Tickets without PR',v:s.noPR,c:s.noPR>0?'var(--coral)':'var(--text-3)'},
+    {l:'Merged PRs',v:s.merged,c:'var(--teal)'},
+    {l:'Deployed (This Release)',v:s.deployedThis,c:'var(--accent)'},
+    {l:'Deployed (Prev Release)',v:s.deployedPrev,c:'var(--amber)'}
+  ];
+  var cardHtml = cards.map(function(c){
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px"><div style="font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+c.l+'</div><div style="font-size:26px;font-weight:600;letter-spacing:-.5px;color:'+c.c+'">'+c.v+'</div></div>';
+  }).join('');
+  document.getElementById('dt-summary-cards').innerHTML = cardHtml;
+
+  // Analysis blocks
+  var ab = document.getElementById('dt-analysis-blocks');
+  var repoTags = data.repos.map(function(r){return '<span style="font-size:11px;font-family:\'DM Mono\',monospace;background:var(--surface-2);border:1px solid var(--border-md);border-radius:5px;padding:2px 7px">'+r+'</span>';}).join(' ');
+
+  var noPRHtml = data.noPRTickets.length > 0
+    ? '<div style="margin-top:8px"><span style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Tickets without PR</span><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">'+data.noPRTickets.map(function(t){return '<span style="font-size:11px;font-family:\'DM Mono\',monospace;background:var(--coral-light);color:var(--coral);border-radius:5px;padding:2px 7px">'+t+'</span>';}).join('')+'</div></div>'
+    : '<div style="margin-top:8px;font-size:12px;color:var(--teal)">✓ All tickets have linked PRs</div>';
+
+  var unregHtml = '';
+  if (data.unregisteredPRs && data.unregisteredPRs.count > 0) {
+    var bd = data.unregisteredPRs.breakdown;
+    unregHtml = '<div style="margin-top:8px"><span style="font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Version-unregistered PRs — '+data.unregisteredPRs.count+' total</span>';
+    if (data.unregisteredPRs.tickets && data.unregisteredPRs.tickets.length) {
+      unregHtml += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">'+data.unregisteredPRs.tickets.map(function(t){return '<span style="font-size:11px;font-family:\'DM Mono\',monospace;background:var(--amber-light);color:var(--amber);border-radius:5px;padding:2px 7px">'+t+'</span>';}).join('')+'</div>';
+    }
+    if (bd) {
+      unregHtml += '<div style="display:flex;gap:8px;margin-top:7px">'
+        +'<span style="font-size:11px;background:var(--coral-light);color:var(--coral);padding:2px 8px;border-radius:6px">Deploy needed: '+bd.needed+'</span>'
+        +'<span style="font-size:11px;background:var(--surface-3);color:var(--text-2);padding:2px 8px;border-radius:6px">Not needed: '+bd.notNeeded+'</span>'
+        +'<span style="font-size:11px;background:var(--surface-3);color:var(--text-3);padding:2px 8px;border-radius:6px">No ticket: '+bd.noTicket+'</span>'
+        +'</div>';
+    }
+    unregHtml += '</div>';
+  }
+
+  // filter bar + table
+  var filterBar = '<div style="display:flex;gap:5px;margin-bottom:10px;align-items:center">'
+    +'<button class="sq-filter-btn active" id="dtf-all" onclick="dtFilter(\'all\')">All ('+data.ticketRows.length+')</button>'
+    +'<button class="sq-filter-btn" id="dtf-deployed-this" onclick="dtFilter(\'deployed-this\')">Deployed This ('+s.deployedThis+')</button>'
+    +'<button class="sq-filter-btn" id="dtf-deployed-prev" onclick="dtFilter(\'deployed-prev\')">Deployed Prev ('+s.deployedPrev+')</button>'
+    +'<button class="sq-filter-btn" id="dtf-no-pr" onclick="dtFilter(\'no-pr\')">No PR ('+s.noPR+')</button>'
+    +'<button class="sq-filter-btn" id="dtf-unregistered" onclick="dtFilter(\'unregistered\')">Unregistered PR</button>'
+    +'</div>';
+
+  ab.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;margin-bottom:12px">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px">Repos in this release</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+repoTags+'</div>'
+    +noPRHtml+unregHtml
+    +'</div>'
+    +'<div class="sv-section-label" style="margin-bottom:8px">Ticket Details</div>'
+    + filterBar
+    +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden"><table class="hist-table" id="dt-ticket-table"><thead><tr><th>Ticket</th><th>Title</th><th>PR</th><th>Merged</th><th>Deploy Status</th></tr></thead><tbody id="dt-ticket-body"></tbody></table></div>';
+
+  renderDTTable(data.ticketRows, 'all');
+}
+
+function dtFilter(f) {
+  var ver = document.getElementById('dt-jira-ver').value;
+  var data = DT_DATA[ver];
+  if (!data) return;
+  DT_FILTER = f;
+  document.querySelectorAll('[id^="dtf-"]').forEach(function(b){ b.classList.remove('active'); });
+  var btn = document.getElementById('dtf-'+f);
+  if (btn) btn.classList.add('active');
+  renderDTTable(data.ticketRows, f);
+}
+
+function renderDTTable(rows, f) {
+  var filtered = f === 'all' ? rows : rows.filter(function(r){ return r.status === f; });
+  var statusMap = {
+    'deployed-this': {label:'Deployed (This)', bg:'var(--teal-light)', color:'var(--teal)'},
+    'deployed-prev': {label:'Deployed (Prev)', bg:'var(--amber-light)', color:'var(--amber)'},
+    'no-pr':         {label:'No PR', bg:'var(--coral-light)', color:'var(--coral)'},
+    'unregistered':  {label:'Unregistered PR', bg:'var(--purple-light)', color:'var(--purple)'}
+  };
+  var tbody = document.getElementById('dt-ticket-body');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.map(function(r){
+    var sm = statusMap[r.status] || {label:r.status,bg:'var(--surface-3)',color:'var(--text-3)'};
+    var prCell = r.pr ? '<span style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--accent)">'+r.pr+'</span>' : '<span style="color:var(--text-3)">—</span>';
+    var mergedCell = r.merged === true ? '<span style="color:var(--teal);font-size:12px">✓</span>' : r.merged === false ? '<span style="color:var(--coral);font-size:12px">✗</span>' : '<span style="color:var(--text-3)">—</span>';
+    return '<tr><td><span style="font-size:11px;font-family:\'DM Mono\',monospace;font-weight:600">'+r.id+'</span></td><td style="color:var(--text-2)">'+r.title+'</td><td>'+prCell+'</td><td style="text-align:center">'+mergedCell+'</td><td><span class="badge" style="background:'+sm.bg+';color:'+sm.color+'">'+sm.label+'</span></td></tr>';
+  }).join('');
+}
+
+function openNewProjectModal(){ document.getElementById('modal-overlay').classList.add('open'); closeAllDD(); }
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
+function onOverlayClick(e){ if(e.target===document.getElementById('modal-overlay'))closeModal(); }
+function selectRadio(t){
+  selType=t;
+  document.getElementById('opt-new').classList.toggle('selected',t==='new');
+  document.getElementById('opt-imp').classList.toggle('selected',t==='imp');
+}
+function createProject(){
+  var product=document.getElementById('modal-product').value;
+  if(!product){alert('Please select a product.');return;}
+  closeModal(); alert('"'+product+'" project created.');
+}
+
+renderD(7);
+</script>
+</body>
+</html>
