@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,9 +13,9 @@
   --text-1: #0F0F0E;
   --text-2: #5C5B58;
   --text-3: #9B9A97;
-  --accent: #1F3F8E;
-  --accent-light: #E8EDF8;
-  --accent-mid: #C5D3EE;
+  --accent: #0B6B54;
+  --accent-light: #E0F2EC;
+  --accent-mid: #A7D9C9;
   --teal: #0F6E56;
   --teal-light: #E1F5EE;
   --amber: #854F0B;
@@ -35,10 +34,10 @@
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-sans), sans-serif;
   background: var(--bg);
   color: var(--text-1);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 

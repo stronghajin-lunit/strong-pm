@@ -191,7 +191,7 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
           data-testid="run-btn"
           onClick={handleRun}
           disabled={!canRun}
-          className="flex items-center gap-[5px] px-[18px] py-2 rounded-[8px] text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-[6px] px-[22px] py-[10px] rounded-[8px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: 'var(--accent)' }}
         >
           <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12">
@@ -230,8 +230,16 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-[14px] py-[20px] text-center text-[12px]" style={{ color: 'var(--text-3)' }}>
-                  실행 기록이 없습니다.
+                <td colSpan={6}>
+                  <div className="py-10 flex flex-col items-center gap-2">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" width="28" height="28" className="opacity-30" style={{ color: 'var(--text-3)' }}>
+                      <rect x="2" y="5" width="12" height="9" rx="1" />
+                      <path d="M2 9h12" />
+                      <path d="M5 5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V5" />
+                    </svg>
+                    <p className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>아직 실행 기록이 없습니다</p>
+                    <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>위 Run 버튼을 눌러 시작하세요.</p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -242,7 +250,10 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
                   <tr
                     key={record.id}
                     data-testid={`history-row-${record.id}`}
+                    className="transition-colors"
                     style={idx < history.length - 1 ? { borderBottom: '1px solid var(--border)' } : undefined}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                   >
                     <td className="px-[14px] py-[9px] text-[12px]" style={{ color: 'var(--text-2)', maxWidth: 300 }}>
                       <span className="block truncate">{record.summary}</span>
