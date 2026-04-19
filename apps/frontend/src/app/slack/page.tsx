@@ -146,6 +146,7 @@ export default function SlackPage() {
             linkedProjectId={item.linkedProjectId}
             onLink={handleLink}
             onArchive={handleArchive}
+            isArchived={filter === 'archived'}
           />
         ))}
       </div>

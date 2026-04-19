@@ -172,5 +172,13 @@ describe('SlackItem', () => {
 
       expect(onArchive).toHaveBeenCalledWith('sq-1')
     })
+
+    it('isArchived=true일 때 버튼이 렌더링되지 않는다', () => {
+      render(
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} linkedProjectId="1" onLink={vi.fn()} onArchive={vi.fn()} isArchived />,
+      )
+
+      expect(screen.queryByTestId('slack-item-archive-btn-sq-1')).not.toBeInTheDocument()
+    })
   })
 })

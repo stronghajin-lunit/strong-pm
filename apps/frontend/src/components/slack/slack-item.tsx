@@ -7,9 +7,10 @@ interface SlackItemProps {
   linkedProjectId: string | null
   onLink: (itemId: string, projectId: string | null) => void
   onArchive: (itemId: string) => void
+  isArchived?: boolean
 }
 
-export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }: SlackItemProps) {
+export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, isArchived = false }: SlackItemProps) {
   const isLinked = linkedProjectId !== null
   const aiProject = projects.find((p) => p.id === item.aiProjectId)
 
@@ -135,25 +136,27 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }
           ))}
         </select>
 
-        {/* Reflect to PRD Q&A button */}
-        <button
-          type="button"
-          data-testid={`slack-item-archive-btn-${item.id}`}
-          disabled={!isLinked}
-          onClick={() => onArchive(item.id)}
-          className="ml-auto flex items-center gap-[5px] px-[12px] py-[5px] rounded-[6px] text-[11px] font-semibold transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-          style={
-            isLinked
-              ? { background: 'var(--teal)', color: '#fff', border: '1px solid var(--teal)' }
-              : { background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border-md)' }
-          }
-          title={isLinked ? 'PRD Q&A에 반영하고 보관' : '프로젝트를 먼저 연결해주세요'}
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
-            <path d="M2 11V13h2l7-7-2-2z" /><path d="M12.5 3.5l-1-1a1 1 0 0 0-1.4 0L9 3.6l2 2z" />
-          </svg>
-          → PRD Q&A
-        </button>
+        {/* Reflect to PRD Q&A button — archived 항목에서는 숨김 */}
+        {!isArchived && (
+          <button
+            type="button"
+            data-testid={`slack-item-archive-btn-${item.id}`}
+            disabled={!isLinked}
+            onClick={() => onArchive(item.id)}
+            className="ml-auto flex items-center gap-[5px] px-[12px] py-[5px] rounded-[6px] text-[11px] font-semibold transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+            style={
+              isLinked
+                ? { background: 'var(--teal)', color: '#fff', border: '1px solid var(--teal)' }
+                : { background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border-md)' }
+            }
+            title={isLinked ? 'PRD Q&A에 반영하고 보관' : '프로젝트를 먼저 연결해주세요'}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
+              <path d="M2 11V13h2l7-7-2-2z" /><path d="M12.5 3.5l-1-1a1 1 0 0 0-1.4 0L9 3.6l2 2z" />
+            </svg>
+            → PRD Q&A
+          </button>
+        )}
       </div>
     </div>
   )
