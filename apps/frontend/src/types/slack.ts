@@ -12,11 +12,11 @@ export interface SlackSummary {
 
 export interface SlackItem {
   id: string
-  sourceType: 'channel' | 'dm'
   user: string
   name: string
   time: string
   text: string
+  messageUrl: string
   threads: SlackThread[]
   summary: SlackSummary
   aiProjectId: string | null

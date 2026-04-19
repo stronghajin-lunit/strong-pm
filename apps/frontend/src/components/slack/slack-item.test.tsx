@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SlackItem } from './slack-item'
 import type { SlackItem as SlackItemType } from '@/types/slack'
@@ -12,11 +12,11 @@ const MOCK_PROJECTS: Project[] = [
 
 const linkedItem: SlackItemType = {
   id: 'sq-1',
-  sourceType: 'channel',
   user: 'KM',
   name: 'Kang Minjun',
   time: 'Today 10:14',
   text: 'How should TossPayments handle decimal rounding? @strong-pm :strong-pm:',
+  messageUrl: 'https://app.slack.com/archives/C04PRIVATE/p1713499800000001',
   threads: [
     { user: 'YJ', name: 'Yoon Jisoo', time: '10:31', text: 'I hit the same issue.' },
   ],
@@ -31,34 +31,17 @@ const linkedItem: SlackItemType = {
 
 const unlinkedItem: SlackItemType = {
   id: 'sq-4',
-  sourceType: 'channel',
   user: 'CW',
   name: 'Choi Wonjun',
   time: 'Yesterday 11:20',
   text: 'Is it feasible to add social login? @strong-pm :strong-pm:',
+  messageUrl: 'https://app.slack.com/archives/C04PRIVATE/p1713400800000004',
   threads: [],
   summary: {
     question: '다음 스프린트에서 소셜 로그인 추가가 가능한가요?',
     answer: '현재 Auth 리디자인과 범위 겹침 확인 필요.',
   },
   aiProjectId: null,
-  linkedProjectId: null,
-  archived: false,
-}
-
-const dmItem: SlackItemType = {
-  id: 'sq-5',
-  sourceType: 'dm',
-  user: 'PJ',
-  name: 'Park Jisoo',
-  time: 'Today 08:47',
-  text: '카카오 소셜로그인이 이번 릴리즈에 포함되나요? :strong-pm:',
-  threads: [],
-  summary: {
-    question: '온보딩 카카오 소셜로그인이 이번 릴리즈 범위에 포함되나요?',
-    answer: '미정. Auth System Redesign 범위 확정 후 결정 예정.',
-  },
-  aiProjectId: '2',
   linkedProjectId: null,
   archived: false,
 }
@@ -73,15 +56,6 @@ describe('SlackItem', () => {
       expect(screen.getByText('Kang Minjun')).toBeInTheDocument()
       expect(screen.getByText('Today 10:14')).toBeInTheDocument()
       expect(screen.getByText('KM')).toBeInTheDocument()
-    })
-
-    it('@strong-pm 멘션을 강조 표시한다', () => {
-      render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} linkedProjectId="1" onLink={vi.fn()} onArchive={vi.fn()} />,
-      )
-
-      const body = screen.getByTestId('slack-item-body-sq-1')
-      expect(within(body).getByText('@strong-pm')).toBeInTheDocument()
     })
 
     it('스레드 답글을 렌더링한다', () => {
@@ -102,22 +76,16 @@ describe('SlackItem', () => {
     })
   })
 
-  describe('DM 인디케이터', () => {
-    it('sourceType이 dm인 경우 DM 뱃지를 표시한다', () => {
-      render(
-        <SlackItem item={dmItem} projects={MOCK_PROJECTS} linkedProjectId={null} onLink={vi.fn()} onArchive={vi.fn()} />,
-      )
-
-      expect(screen.getByTestId('slack-item-dm-badge-sq-5')).toBeInTheDocument()
-      expect(screen.getByTestId('slack-item-dm-badge-sq-5')).toHaveTextContent('DM')
-    })
-
-    it('sourceType이 channel인 경우 DM 뱃지를 표시하지 않는다', () => {
+  describe('Slack 원본 링크', () => {
+    it('"Slack에서 보기" 링크가 올바른 URL을 가진다', () => {
       render(
         <SlackItem item={linkedItem} projects={MOCK_PROJECTS} linkedProjectId="1" onLink={vi.fn()} onArchive={vi.fn()} />,
       )
 
-      expect(screen.queryByTestId('slack-item-dm-badge-sq-1')).not.toBeInTheDocument()
+      const link = screen.getByTestId('slack-item-link-sq-1')
+      expect(link).toHaveAttribute('href', linkedItem.messageUrl)
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveTextContent('Slack에서 보기')
     })
   })
 
@@ -199,8 +167,7 @@ describe('SlackItem', () => {
         <SlackItem item={linkedItem} projects={MOCK_PROJECTS} linkedProjectId="1" onLink={vi.fn()} onArchive={vi.fn()} />,
       )
 
-      const btn = screen.getByTestId('slack-item-archive-btn-sq-1')
-      expect(btn).not.toBeDisabled()
+      expect(screen.getByTestId('slack-item-archive-btn-sq-1')).not.toBeDisabled()
     })
 
     it('linkedProjectId가 null일 때 버튼이 비활성화된다', () => {
@@ -208,8 +175,7 @@ describe('SlackItem', () => {
         <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} linkedProjectId={null} onLink={vi.fn()} onArchive={vi.fn()} />,
       )
 
-      const btn = screen.getByTestId('slack-item-archive-btn-sq-4')
-      expect(btn).toBeDisabled()
+      expect(screen.getByTestId('slack-item-archive-btn-sq-4')).toBeDisabled()
     })
 
     it('버튼 클릭 시 onArchive를 호출한다', async () => {

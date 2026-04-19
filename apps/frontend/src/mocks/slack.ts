@@ -3,11 +3,11 @@ import type { SlackItem } from '@/types/slack'
 export const MOCK_SLACK_ITEMS: SlackItem[] = [
   {
     id: 'sq-1',
-    sourceType: 'channel',
     user: 'KM',
     name: 'Kang Minjun',
     time: 'Today 10:14',
     text: 'In the payment cancel API, partial refund amounts come in as KRW integers — how should TossPayments handle decimal rounding? @strong-pm :strong-pm:',
+    messageUrl: 'https://app.slack.com/archives/C04PRIVATE/p1713499800000001',
     threads: [
       {
         user: 'YJ',
@@ -32,11 +32,11 @@ export const MOCK_SLACK_ITEMS: SlackItem[] = [
   },
   {
     id: 'sq-2',
-    sourceType: 'channel',
     user: 'SH',
     name: 'Song Hyunwoo',
     time: 'Today 09:02',
     text: 'The PRD seems to be missing the auto-reissue logic when the OAuth refresh token expires. How should we handle this? @strong-pm :strong-pm:',
+    messageUrl: 'https://app.slack.com/archives/C04PRIVATE/p1713492120000002',
     threads: [
       {
         user: 'PM',
@@ -55,11 +55,11 @@ export const MOCK_SLACK_ITEMS: SlackItem[] = [
   },
   {
     id: 'sq-3',
-    sourceType: 'channel',
     user: 'LJ',
     name: 'Lee Jiyeon',
     time: 'Yesterday 16:45',
     text: 'After the Dashboard v2 deploy, some users are reporting broken chart rendering in Safari. Looks like a hotfix may be needed — @strong-pm :strong-pm: please confirm.',
+    messageUrl: 'https://app.slack.com/archives/C04PRIVATE/p1713415500000003',
     threads: [],
     summary: {
       question: 'Dashboard v2 배포 후 Safari에서 차트 렌더링이 깨지는 버그 발생 — 핫픽스가 필요한가요?',
@@ -71,11 +71,11 @@ export const MOCK_SLACK_ITEMS: SlackItem[] = [
   },
   {
     id: 'sq-4',
-    sourceType: 'channel',
     user: 'CW',
     name: 'Choi Wonjun',
     time: 'Yesterday 11:20',
     text: 'Is it feasible to add social login (Google / Kakao) to the onboarding flow in the next sprint? @strong-pm :strong-pm:',
+    messageUrl: 'https://app.slack.com/archives/C04PRIVATE/p1713400800000004',
     threads: [
       {
         user: 'KM',
@@ -90,45 +90,6 @@ export const MOCK_SLACK_ITEMS: SlackItem[] = [
     },
     aiProjectId: null,
     linkedProjectId: null,
-    archived: false,
-  },
-  {
-    id: 'sq-5',
-    sourceType: 'dm',
-    user: 'PJ',
-    name: 'Park Jisoo',
-    time: 'Today 08:47',
-    text: '안녕하세요, 온보딩 화면에서 카카오 소셜로그인 붙이는 게 이번 릴리즈에 포함되는 건지 확인할 수 있을까요? :strong-pm:',
-    threads: [],
-    summary: {
-      question: '온보딩 화면에 카카오 소셜로그인이 이번 릴리즈 범위에 포함되나요?',
-      answer: '미정. Auth System Redesign 범위 확정 후 포함 여부 결정 예정.',
-    },
-    aiProjectId: '2',
-    linkedProjectId: null,
-    archived: false,
-  },
-  {
-    id: 'sq-6',
-    sourceType: 'dm',
-    user: 'LJW',
-    name: 'Lee Jaewon',
-    time: 'Yesterday 17:30',
-    text: 'Dashboard Safari 버그 핫픽스 릴리즈 범위가 어떻게 되나요? 차트 컴포넌트만 포함인지, 아니면 전체 v2.1 패치인지 확인해주세요. :strong-pm:',
-    threads: [
-      {
-        user: 'PM',
-        name: 'PM Bot',
-        time: '17:45',
-        text: 'Safari 차트 렌더링 버그만 핫픽스로 배포 예정. v2.1 전체 패치는 다음 스프린트로 이월.',
-      },
-    ],
-    summary: {
-      question: 'Dashboard Safari 버그 핫픽스의 릴리즈 범위가 차트 컴포넌트만인지, v2.1 전체 패치인지 확인 요청',
-      answer: 'Safari 차트 렌더링 버그만 핫픽스로 먼저 배포. v2.1 전체 패치는 다음 스프린트로 이월.',
-    },
-    aiProjectId: '3',
-    linkedProjectId: '3',
     archived: false,
   },
 ]

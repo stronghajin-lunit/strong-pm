@@ -11,7 +11,6 @@ interface SlackItemProps {
 
 export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }: SlackItemProps) {
   const isLinked = linkedProjectId !== null
-  const isDM = item.sourceType === 'dm'
   const aiProject = projects.find((p) => p.id === item.aiProjectId)
 
   return (
@@ -24,56 +23,42 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }
       }}
     >
       {/* Header */}
-      <div className="flex items-start gap-[10px] mb-2">
+      <div className="flex items-center gap-[10px] mb-[10px]">
         <div
           className="w-8 h-8 rounded-[8px] flex items-center justify-center text-[12px] font-bold text-white shrink-0 font-mono"
-          style={{ background: isDM ? '#6B5B9A' : '#4A154B' }}
+          style={{ background: '#4A154B' }}
           aria-hidden="true"
         >
           {item.user}
         </div>
-        <div className="flex-1 flex items-center gap-[6px] flex-wrap">
+        <div className="flex-1">
           <span className="text-[12px] font-semibold">{item.name}</span>
-          <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+          <span className="text-[10px] ml-[6px]" style={{ color: 'var(--text-3)' }}>
             {item.time}
           </span>
-          {isDM && (
-            <span
-              data-testid={`slack-item-dm-badge-${item.id}`}
-              className="flex items-center gap-[3px] text-[10px] font-medium px-[6px] py-[1px] rounded-[5px]"
-              style={{ background: '#EEE8FA', color: '#6B5B9A' }}
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="9" height="9">
-                <path d="M2 4h12v8H2z" /><polyline points="2,4 8,9 14,4" />
-              </svg>
-              DM
-            </span>
-          )}
         </div>
+        {/* Slack 원본 링크 */}
+        <a
+          href={item.messageUrl}
+          target="_blank"
+          rel="noreferrer"
+          data-testid={`slack-item-link-${item.id}`}
+          className="flex items-center gap-[4px] text-[10px] font-medium px-[8px] py-[3px] rounded-[6px] transition-colors hover:opacity-80 whitespace-nowrap"
+          style={{ background: '#F3EFF5', color: '#4A154B', border: '1px solid #E0D4E8' }}
+          title="Slack에서 원본 메시지 보기"
+        >
+          <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
+            <path d="M6 3a1 1 0 0 0 0 2h.5l-3 3a1 1 0 1 0 1.414 1.414l3-3V7a1 1 0 0 0 2 0V3H6z"/>
+            <path d="M3 9a1 1 0 0 0-1 1v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2a1 1 0 0 0-2 0v2H4v-2a1 1 0 0 0-1-1z"/>
+          </svg>
+          Slack에서 보기
+        </a>
       </div>
 
-      {/* Body */}
-      <p
-        className="text-[12px] leading-[1.6] mb-[10px] pl-[42px]"
-        style={{ color: 'var(--text-1)' }}
-        data-testid={`slack-item-body-${item.id}`}
-      >
-        {renderTextWithMention(item.text)}
-      </p>
-
-      {/* Threads */}
-      {item.threads.length > 0 && (
-        <div className="pl-[42px] mb-[10px]">
-          {item.threads.map((thread, idx) => (
-            <ThreadItem key={idx} thread={thread} />
-          ))}
-        </div>
-      )}
-
-      {/* AI Summary */}
+      {/* AI Summary — 헤더 바로 아래 */}
       <div
         data-testid={`slack-item-summary-${item.id}`}
-        className="mx-[0px] ml-[42px] mb-[10px] rounded-[8px] px-[12px] py-[10px]"
+        className="ml-[42px] mb-[10px] rounded-[8px] px-[12px] py-[10px]"
         style={{ background: 'var(--teal-light)', border: '1px solid var(--teal)' }}
       >
         <div className="flex items-center gap-[5px] mb-[6px]">
@@ -97,6 +82,15 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }
           </p>
         </div>
       </div>
+
+      {/* Threads */}
+      {item.threads.length > 0 && (
+        <div className="pl-[42px] mb-[10px]">
+          {item.threads.map((thread, idx) => (
+            <ThreadItem key={idx} thread={thread} />
+          ))}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="pl-[42px] flex items-center gap-2">
@@ -198,18 +192,4 @@ function ThreadItem({ thread }: { thread: SlackThread }) {
       </div>
     </div>
   )
-}
-
-function renderTextWithMention(text: string): React.ReactNode {
-  const parts = text.split('@strong-pm')
-  return parts.map((part, idx) => (
-    <span key={idx}>
-      {part}
-      {idx < parts.length - 1 && (
-        <span className="font-medium" style={{ color: 'var(--accent)' }}>
-          @strong-pm
-        </span>
-      )}
-    </span>
-  ))
 }
