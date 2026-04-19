@@ -6,12 +6,13 @@ import type { SlackFilter } from '@/types/slack'
 
 describe('SlackFilterBar', () => {
   describe('기본 렌더링', () => {
-    it('All / Unlinked / Linked 버튼을 렌더링한다', () => {
+    it('All / Unlinked / Linked / Archive 버튼을 렌더링한다', () => {
       render(<SlackFilterBar activeFilter="all" count={4} onFilter={vi.fn()} />)
 
       expect(screen.getByTestId('filter-btn-all')).toBeInTheDocument()
       expect(screen.getByTestId('filter-btn-unlinked')).toBeInTheDocument()
       expect(screen.getByTestId('filter-btn-linked')).toBeInTheDocument()
+      expect(screen.getByTestId('filter-btn-archived')).toBeInTheDocument()
     })
 
     it('count를 "N messages" 형식으로 표시한다', () => {
@@ -23,6 +24,11 @@ describe('SlackFilterBar', () => {
       render(<SlackFilterBar activeFilter="all" count={1} onFilter={vi.fn()} />)
       expect(screen.getByTestId('filter-count')).toHaveTextContent('1 message')
     })
+
+    it('archived 탭 활성화 시 "N archived" 형식으로 표시한다', () => {
+      render(<SlackFilterBar activeFilter="archived" count={2} onFilter={vi.fn()} />)
+      expect(screen.getByTestId('filter-count')).toHaveTextContent('2 archived')
+    })
   })
 
   describe('활성 필터 표시', () => {
@@ -32,11 +38,12 @@ describe('SlackFilterBar', () => {
       expect(screen.getByTestId('filter-btn-unlinked')).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByTestId('filter-btn-all')).toHaveAttribute('aria-pressed', 'false')
       expect(screen.getByTestId('filter-btn-linked')).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByTestId('filter-btn-archived')).toHaveAttribute('aria-pressed', 'false')
     })
   })
 
   describe('필터 클릭', () => {
-    it.each<SlackFilter>(['all', 'unlinked', 'linked'])(
+    it.each<SlackFilter>(['all', 'unlinked', 'linked', 'archived'])(
       '%s 버튼 클릭 시 onFilter(%s)를 호출한다',
       async (filterValue) => {
         // Given

@@ -28,12 +28,22 @@ export default function SlackPage() {
     )
   }
 
+  const handleArchive = (itemId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, archived: true } : item,
+      ),
+    )
+  }
+
   const handleSync = () => {
     setIsSyncing(true)
     setTimeout(() => setIsSyncing(false), 1200)
   }
 
   const filteredItems = items.filter((item) => {
+    if (filter === 'archived') return item.archived
+    if (item.archived) return false
     if (filter === 'linked') return item.linkedProjectId !== null
     if (filter === 'unlinked') return item.linkedProjectId === null
     return true
@@ -51,7 +61,7 @@ export default function SlackPage() {
           private-onco-squad
         </div>
         <div className="text-[11px] flex-1" style={{ color: 'var(--text-3)' }}>
-          Messages / thread replies tagged with :strong-pm: · auto-collected
+          Channel messages & DMs tagged with :strong-pm: · auto-collected
         </div>
         <button
           type="button"
@@ -90,17 +100,35 @@ export default function SlackPage() {
 
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        {filteredItems.map((item) => (
-          <SlackItem
-            key={item.id}
-            item={item}
-            projects={projects}
-            linkedProjectId={item.linkedProjectId}
-            onLink={handleLink}
-          />
-        ))}
+        {filter === 'archived' && filteredItems.length === 0 && (
+          <div
+            className="rounded-[12px] p-[40px_20px] text-center"
+            style={{ background: 'var(--surface)', border: '1px dashed var(--border-md)' }}
+            data-testid="empty-state"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              width="28"
+              height="28"
+              className="mx-auto mb-[10px] opacity-40"
+              style={{ color: 'var(--text-3)' }}
+            >
+              <rect x="1" y="4" width="14" height="10" rx="1" />
+              <path d="M1 4h14M6 8h4" />
+            </svg>
+            <p className="text-[13px] font-medium mb-1" style={{ color: 'var(--text-3)' }}>
+              아직 보관된 항목이 없습니다
+            </p>
+            <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
+              프로젝트 연결 후 "→ PRD Q&A" 버튼을 누르면 이곳에 보관됩니다.
+            </p>
+          </div>
+        )}
 
-        {filteredItems.length === 0 && (
+        {filter !== 'archived' && filteredItems.length === 0 && (
           <div
             className="text-center py-10 text-[13px]"
             style={{ color: 'var(--text-3)' }}
@@ -109,6 +137,17 @@ export default function SlackPage() {
             No messages
           </div>
         )}
+
+        {filteredItems.map((item) => (
+          <SlackItem
+            key={item.id}
+            item={item}
+            projects={projects}
+            linkedProjectId={item.linkedProjectId}
+            onLink={handleLink}
+            onArchive={handleArchive}
+          />
+        ))}
       </div>
     </div>
   )
