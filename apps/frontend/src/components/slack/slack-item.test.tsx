@@ -58,22 +58,6 @@ describe('SlackItem', () => {
       expect(screen.getByText('KM')).toBeInTheDocument()
     })
 
-    it('스레드 답글을 렌더링한다', () => {
-      render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} linkedProjectId="1" onLink={vi.fn()} onArchive={vi.fn()} />,
-      )
-
-      expect(screen.getByText('Yoon Jisoo')).toBeInTheDocument()
-      expect(screen.getByText('I hit the same issue.')).toBeInTheDocument()
-    })
-
-    it('스레드가 없을 때 스레드 영역을 렌더링하지 않는다', () => {
-      render(
-        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} linkedProjectId={null} onLink={vi.fn()} onArchive={vi.fn()} />,
-      )
-
-      expect(screen.queryByText('Yoon Jisoo')).not.toBeInTheDocument()
-    })
   })
 
   describe('Slack 원본 링크', () => {

@@ -1,4 +1,4 @@
-import type { SlackItem as SlackItemType, SlackThread } from '@/types/slack'
+import type { SlackItem as SlackItemType } from '@/types/slack'
 import type { Project } from '@/types/project'
 
 interface SlackItemProps {
@@ -83,15 +83,6 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }
         </div>
       </div>
 
-      {/* Threads */}
-      {item.threads.length > 0 && (
-        <div className="pl-[42px] mb-[10px]">
-          {item.threads.map((thread, idx) => (
-            <ThreadItem key={idx} thread={thread} />
-          ))}
-        </div>
-      )}
-
       {/* Footer */}
       <div className="pl-[42px] flex items-center gap-2">
         {/* AI suggestion tag */}
@@ -168,28 +159,3 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive }
   )
 }
 
-function ThreadItem({ thread }: { thread: SlackThread }) {
-  return (
-    <div
-      className="flex gap-2 py-[6px]"
-      style={{ borderTop: '1px solid var(--border)' }}
-    >
-      <div
-        className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center text-[10px] font-bold shrink-0"
-        style={{ background: 'var(--surface-3)', color: 'var(--text-2)' }}
-        aria-hidden="true"
-      >
-        {thread.user}
-      </div>
-      <div className="flex-1">
-        <span className="text-[11px] font-semibold">{thread.name}</span>
-        <span className="text-[10px] ml-[5px]" style={{ color: 'var(--text-3)' }}>
-          {thread.time}
-        </span>
-        <p className="text-[11px] mt-[1px] leading-[1.5]" style={{ color: 'var(--text-2)' }}>
-          {thread.text}
-        </p>
-      </div>
-    </div>
-  )
-}
