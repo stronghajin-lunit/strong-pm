@@ -259,9 +259,9 @@ async def generate_sprint_report(
 
     completion_info = ""
     if sp_goal:
-        rate = round(done_sp / sp_goal * 100, 1)
+        rate = round(total_sp / sp_goal * 100, 1)
         completion_info = (
-            f"SP Goal: {sp_goal} | Done SP: {done_sp} | "
+            f"SP Goal: {sp_goal} | Total SP: {total_sp} | "
             f"Sprint Completion Rate: {rate}%\n"
         )
 
