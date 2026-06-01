@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useUIStore } from '@/stores/ui-store'
 import { useChatStore } from '@/stores/chat-store'
@@ -164,9 +164,8 @@ export default function ReleaseNotesPage() {
               const reflected = !!record.reflection
 
               return (
-                <>
+                <Fragment key={record.id}>
                   <tr
-                    key={record.id}
                     data-testid={`history-row-${record.id}`}
                     className="transition-colors"
                     style={
@@ -302,7 +301,7 @@ export default function ReleaseNotesPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>

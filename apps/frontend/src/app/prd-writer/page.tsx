@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { PrdForm } from '@/components/prd/prd-form'
 import { ChatPanel } from '@/components/workspace/chat-panel'
@@ -149,9 +149,8 @@ export default function PrdWriterPage() {
               const reflected = !!record.reflection
 
               return (
-                <>
+                <Fragment key={record.id}>
                   <tr
-                    key={record.id}
                     data-testid={`history-row-${record.id}`}
                     className="transition-colors"
                     style={
@@ -282,7 +281,7 @@ export default function PrdWriterPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>

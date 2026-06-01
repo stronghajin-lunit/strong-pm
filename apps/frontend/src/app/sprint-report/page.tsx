@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { SprintReportForm } from '@/components/sprint-report/sprint-report-form'
 import { ChatPanel } from '@/components/workspace/chat-panel'
@@ -156,9 +156,8 @@ export default function SprintReportPage() {
               const reflected = !!record.reflection
 
               return (
-                <>
+                <Fragment key={record.id}>
                   <tr
-                    key={record.id}
                     data-testid={`history-row-${record.id}`}
                     className="transition-colors"
                     style={
@@ -291,7 +290,7 @@ export default function SprintReportPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
