@@ -1,48 +1,48 @@
 ---
 name: refactor
 description: |
-  백엔드 레이어 분리 리팩토링 실행 스킬. Router → Service → Repository 계층 분리를 적용합니다.
-  사용 시점: /project:refactor 커맨드 호출 시, 도메인별 레이어 분리 작업 시
+  Backend layer separation refactoring skill. Applies Router → Service → Repository layer separation.
+  Trigger: /project:refactor command, domain-level layer separation work
 ---
 
 # Refactor Skill
 
-## 사용법
+## Usage
 
 ```
-/project:refactor users             # 특정 도메인 전체
-/project:refactor users create_user # 도메인의 특정 메서드
-/project:refactor status            # 진행 상황 확인
+/project:refactor users             # entire domain
+/project:refactor users create_user # specific method in a domain
+/project:refactor status            # check progress
 ```
 
 ---
 
-## 절대 규칙 (위반 시 작업 중단)
+## Absolute Rules (stop work on violation)
 
-### 1. 레이어 의존 방향 — 단방향만 허용
+### 1. Layer Dependency Direction — One-Way Only
 
 ```
 Router → Service → Repository → Model
-                 ↘ DTO/Schema (공유 가능)
+                 ↘ DTO/Schema (shared)
 ```
 
-| 레이어 | import 가능 | import 금지 |
-|--------|------------|------------|
-| **Router** | Service, Schema, Depends | Repository, Model, DTO 직접 |
-| **Service** | Repository, DTO, Enum | Router, Model, ORM 직접 접근 |
+| Layer | Allowed imports | Forbidden imports |
+|-------|----------------|-------------------|
+| **Router** | Service, Schema, Depends | Repository, Model, DTO directly |
+| **Service** | Repository, DTO, Enum | Router, Model, direct ORM access |
 | **Repository** | Model, DTO, Enum | Service, Router |
 
-### 2. 경계 객체
+### 2. Boundary Objects
 
-| 경계 | 객체 | 역할 |
-|------|------|------|
-| Frontend ↔ Router | **Schema** (Pydantic) | API 계약, 직렬화/검증 |
-| Service ↔ Repository | **DTO** (Pydantic BaseModel) | DB 구조 격리 |
+| Boundary | Object | Role |
+|----------|--------|------|
+| Frontend ↔ Router | **Schema** (Pydantic) | API contract, serialization/validation |
+| Service ↔ Repository | **DTO** (Pydantic BaseModel) | Isolates DB structure |
 
-**Service 메서드 파라미터에 Schema를 직접 받지 않는다.**
-→ Router에서 Schema → 개별 파라미터 또는 DTO로 변환 후 Service에 전달
+**Service method parameters must not accept Schema directly.**
+→ Router converts Schema → individual parameters or DTO before passing to Service.
 
-### 3. DI 패턴
+### 3. DI Pattern
 
 ```python
 # apps/backend/app/services/{domain}_service.py
@@ -57,35 +57,35 @@ class UserRepository:
         self.db = db
 ```
 
-### 4. 트랜잭션 관리
+### 4. Transaction Management
 
-- **Repository**: `flush()`만 수행. **절대 `commit()` 안 함**
-- **Service**: 여러 Repository 호출 후 `commit()` / `rollback()` 결정
+- **Repository**: only `flush()`. **Never `commit()`**
+- **Service**: decides `commit()` / `rollback()` after calling multiple Repositories
 
-### 5. UTC 시간 필수
+### 5. UTC Time Required
 
 ```python
 # BAD
 datetime.utcnow()   # timezone-naive
-datetime.now()      # 로컬 타임존
+datetime.now()      # local timezone
 
 # GOOD
 from datetime import datetime, timezone
 datetime.now(timezone.utc)
 ```
 
-### 6. 매직 스트링 금지
+### 6. No Magic Strings
 
 ```python
 # BAD
 user.status = "active"
 
-# GOOD — apps/backend/app/enums/{domain}.py 에 정의
+# GOOD — define in apps/backend/app/enums/{domain}.py
 from app.enums.user import UserStatus
 user.status = UserStatus.ACTIVE
 ```
 
-### 7. 타입 힌트 필수
+### 7. Type Hints Required
 
 ```python
 # BAD
@@ -99,31 +99,31 @@ async def get_user(self, user_id: int) -> Optional[UserDTO]:
 
 ---
 
-## 실행 워크플로우
+## Execution Workflow
 
-### Step 0: 사전 분석 (코드 읽기만, 수정 없음)
+### Step 0: Pre-Analysis (read only, no changes)
 
-1. 대상 도메인 코드 읽기:
-   - `apps/backend/app/api/v1/{domain}.py` (라우터)
+1. Read target domain code:
+   - `apps/backend/app/api/v1/{domain}.py` (router)
    - `apps/backend/app/services/{domain}_service.py`
    - `apps/backend/app/models/{domain}.py`
    - `apps/backend/app/schemas/{domain}.py`
-   - `apps/backend/app/repositories/{domain}_repo.py` (있으면)
+   - `apps/backend/app/repositories/{domain}_repo.py` (if exists)
 
-2. **위반 사항 목록 작성**
+2. **List all violations**
 
-3. **변경 계획 보고 → 사용자 승인 후 진행**
+3. **Report change plan → proceed only after user approval**
 
-### Step 1: 기반 구조 생성
+### Step 1: Create Foundation Structure
 
 ```
 apps/backend/app/
-├── enums/{domain}.py          # 매직 스트링 → Enum
-├── dtos/{domain}.py           # Service ↔ Repository 전달 객체
-└── repositories/{domain}_repo.py  # ORM 쿼리 분리
+├── enums/{domain}.py          # magic strings → Enum
+├── dtos/{domain}.py           # Service ↔ Repository transfer objects
+└── repositories/{domain}_repo.py  # ORM query separation
 ```
 
-**Repository 패턴:**
+**Repository Pattern:**
 ```python
 # apps/backend/app/repositories/user_repo.py
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -144,11 +144,11 @@ class UserRepository:
     async def create(self, **kwargs) -> UserDTO:
         user = User(**kwargs)
         self.db.add(user)
-        await self.db.flush()  # commit() 절대 금지
+        await self.db.flush()  # absolutely no commit()
         return UserDTO.model_validate(user)
 ```
 
-### Step 2: Service 리팩토링
+### Step 2: Refactor Service
 
 ```python
 # apps/backend/app/services/user_service.py
@@ -165,11 +165,11 @@ class UserService:
 
     async def create_user(self, email: str, name: str) -> UserDTO:
         user = await self.user_repo.create(email=email, name=name)
-        await self.db.commit()  # Service에서 commit
+        await self.db.commit()  # commit in Service
         return user
 ```
 
-### Step 3: Router 정리
+### Step 3: Clean Up Router
 
 ```python
 # apps/backend/app/api/v1/users.py
@@ -181,34 +181,34 @@ async def create_user(
     data: UserCreateRequest,
     service: UserService = Depends(get_user_service),
 ) -> UserResponse:
-    # Schema → 개별 파라미터로 변환 후 Service 호출
+    # Schema → individual parameters before passing to Service
     user = await service.create_user(email=data.email, name=data.name)
     return UserResponse.model_validate(user)
 ```
 
-### Step 4: 검증 체크리스트
+### Step 4: Validation Checklist
 
 ```
-[ ] Service 파일에 `from app.models.*` import가 없는가?
-[ ] Service 파일에 `select()`, `db.add()`, `db.execute()` 가 없는가?
-[ ] Repository 파일에 `commit()` 이 없는가? (flush만 허용)
-[ ] Router 파일에 Repository, Model import가 없는가?
-[ ] Service 메서드 파라미터에 Schema 타입이 없는가?
-[ ] 매직 스트링 대신 Enum을 사용하는가?
-[ ] 모든 메서드에 타입 힌트가 있는가?
-[ ] datetime.now(timezone.utc) 만 사용하는가?
-[ ] 순환참조가 없는가?
+[ ] No `from app.models.*` import in Service file?
+[ ] No `select()`, `db.add()`, `db.execute()` in Service file?
+[ ] No `commit()` in Repository file? (only flush allowed)
+[ ] No Repository, Model imports in Router file?
+[ ] No Schema type in Service method parameters?
+[ ] Using Enum instead of magic strings?
+[ ] Type hints on all methods?
+[ ] Only `datetime.now(timezone.utc)` used?
+[ ] No circular imports?
 ```
 
 ---
 
-## 파일 생성 위치
+## File Placement
 
 ```
 apps/backend/app/
-├── enums/{domain}.py              # Enum 정의
-├── dtos/{domain}.py               # DTO 정의
+├── enums/{domain}.py              # Enum definitions
+├── dtos/{domain}.py               # DTO definitions
 ├── repositories/{domain}_repo.py  # Repository
-├── services/{domain}_service.py   # Service (리팩토링)
-└── api/v1/{domain}.py             # Router (정리)
+├── services/{domain}_service.py   # Service (refactored)
+└── api/v1/{domain}.py             # Router (cleaned up)
 ```

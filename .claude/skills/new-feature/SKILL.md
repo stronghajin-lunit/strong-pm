@@ -1,62 +1,62 @@
 ---
 name: new-feature
 description: |
-  새 기능 스캐폴딩 스킬. Backend + Frontend 파일 생성 순서를 가이드합니다.
-  사용 시점: "기능 추가", "API 만들어", "컴포넌트 만들어", "엔드포인트 필요" 등의 요청
+  New feature scaffolding skill. Guides the file creation order for Backend + Frontend.
+  Trigger: requests like "add feature", "create API", "create component", "need endpoint", "create CRUD"
 ---
 
 # New Feature Skill
 
-## 트리거 패턴
+## Trigger Patterns
 
-다음 패턴의 요청 시 이 스킬이 활성화됩니다:
-- "~~ 기능 추가해줘"
-- "~~ API 만들어줘"
-- "~~ 컴포넌트 만들어줘"
-- "~~ 엔드포인트 만들어줘"
-- "~~ CRUD 만들어줘"
-- `/project:new-feature <name>` 커맨드 호출
+This skill activates on requests such as:
+- "add ~~ feature"
+- "create ~~ API"
+- "create ~~ component"
+- "create ~~ endpoint"
+- "create ~~ CRUD"
+- `/project:new-feature <name>` command
 
 ---
 
-## 0단계: 계획 보고 (필수)
+## Step 0: Report Plan (Required)
 
-> **절대 규칙**: 파일 생성 전 반드시 아래 형식으로 계획을 보고하고 승인을 받는다.
+> **Absolute rule**: Before creating any file, report the plan in the format below and get approval.
 
 ```markdown
-## 새 기능 구현 계획: {기능명}
+## New Feature Implementation Plan: {feature name}
 
-### 생성할 파일 목록
+### Files to Create
 
 **Backend:**
-- [ ] `apps/backend/app/models/{name}.py` — SQLAlchemy 모델
-- [ ] `apps/backend/app/schemas/{name}.py` — Pydantic 스키마
-- [ ] `apps/backend/app/repositories/{name}_repo.py` — 데이터 접근
-- [ ] `apps/backend/app/services/{name}_service.py` — 비즈니스 로직
-- [ ] `apps/backend/app/api/v1/{name}.py` — FastAPI 라우터
-- [ ] `apps/backend/alembic/versions/{timestamp}_{name}.py` — 마이그레이션
-- [ ] `apps/backend/tests/test_{name}.py` — 백엔드 테스트
+- [ ] `apps/backend/app/models/{name}.py` — SQLAlchemy model
+- [ ] `apps/backend/app/schemas/{name}.py` — Pydantic schema
+- [ ] `apps/backend/app/repositories/{name}_repo.py` — Data access
+- [ ] `apps/backend/app/services/{name}_service.py` — Business logic
+- [ ] `apps/backend/app/api/v1/{name}.py` — FastAPI router
+- [ ] `apps/backend/alembic/versions/{timestamp}_{name}.py` — Migration
+- [ ] `apps/backend/tests/test_{name}.py` — Backend tests
 
 **Frontend:**
-- [ ] `apps/frontend/src/types/{name}.ts` — TypeScript 타입
-- [ ] `apps/frontend/src/api/use-{name}.ts` — React Query 훅
-- [ ] `apps/frontend/src/components/{name}/` — 컴포넌트
-- [ ] `apps/frontend/src/pages/{name}/` — 페이지
-- [ ] `apps/frontend/src/components/{name}/{name}.test.tsx` — 프론트 테스트
+- [ ] `apps/frontend/src/types/{name}.ts` — TypeScript types
+- [ ] `apps/frontend/src/api/use-{name}.ts` — React Query hook
+- [ ] `apps/frontend/src/components/{name}/` — Components
+- [ ] `apps/frontend/src/pages/{name}/` — Page
+- [ ] `apps/frontend/src/components/{name}/{name}.test.tsx` — Frontend tests
 
-**문서 업데이트:**
-- [ ] `docs/api-conventions.md` — 새 엔드포인트 추가
-- [ ] `.claude/plan/PLAN.md` — 현재 작업 섹션 업데이트
+**Documentation Updates:**
+- [ ] `docs/api-conventions.md` — Add new endpoint
+- [ ] `.claude/plan/PLAN.md` — Update current work section
 
-### API 설계
-{API 엔드포인트 목록}
+### API Design
+{API endpoint list}
 
-승인하시면 위 순서대로 진행합니다.
+Awaiting approval to proceed in order above.
 ```
 
 ---
 
-## Backend 생성 순서
+## Backend Creation Order
 
 ### 1. Model (SQLAlchemy)
 
@@ -68,10 +68,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 class {Name}(Base):
-    __tablename__ = "{names}"  # snake_case 복수형
+    __tablename__ = "{names}"  # snake_case plural
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # 도메인 필드 ...
+    # domain fields ...
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -91,10 +91,10 @@ from pydantic import BaseModel
 from datetime import datetime
 
 class {Name}Base(BaseModel):
-    # 공통 필드
+    # shared fields
 
 class {Name}Create(Base):
-    # 생성 시 필요한 필드
+    # fields required for creation
 
 class {Name}Response({Name}Base):
     id: int
@@ -126,7 +126,7 @@ class {Name}Repository:
     async def create(self, **kwargs) -> {Name}Response:
         item = {Name}(**kwargs)
         self.db.add(item)
-        await self.db.flush()  # commit() 금지
+        await self.db.flush()  # no commit()
         return {Name}Response.model_validate(item)
 ```
 
@@ -199,20 +199,24 @@ cd apps/backend && alembic revision --autogenerate -m "add {names} table"
 class TestCreate{Name}:
     """POST /api/v1/{names}
 
-    비즈니스 규칙:
-    1. {규칙1}
-    2. {규칙2}
+    Business rules:
+    1. {rule1}
+    2. {rule2}
     """
 
     @pytest.mark.asyncio
     async def test_creates_successfully(self, client):
-        """정상 생성"""
+        """Successful creation
+        Given: valid input
+        When: POST call
+        Then: 201 returned
+        """
         # Given / When / Then
 ```
 
 ---
 
-## Frontend 생성 순서
+## Frontend Creation Order
 
 ### 1. Types
 
@@ -220,13 +224,13 @@ class TestCreate{Name}:
 // apps/frontend/src/types/{name}.ts
 export interface {Name} {
   id: number;
-  // 필드...
+  // fields...
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Create{Name}Request {
-  // 생성 요청 필드
+  // creation request fields
 }
 ```
 
@@ -276,7 +280,7 @@ interface {Name}CardProps {
 export function {Name}Card({ {name} }: {Name}CardProps) {
   return (
     <div>
-      {/* UI 렌더링 */}
+      {/* UI rendering */}
     </div>
   );
 }
@@ -308,7 +312,7 @@ import { render, screen } from '@testing-library/react';
 import { {Name}Card } from './{name}-card';
 
 describe('{Name}Card', () => {
-  it('기본 정보를 렌더링한다', () => {
+  it('renders basic info', () => {
     // Given / When / Then
   });
 });
@@ -316,8 +320,8 @@ describe('{Name}Card', () => {
 
 ---
 
-## 완료 후 업데이트 항목
+## Post-Completion Updates
 
-1. **`docs/api-conventions.md`**: 새 엔드포인트 및 스키마 추가
-2. **`.claude/plan/PLAN.md`**: 현재 작업 섹션 업데이트, 완료 체크
-3. **`apps/backend/app/main.py`**: 라우터 등록 확인
+1. **`docs/api-conventions.md`**: Add new endpoint and schema
+2. **`.claude/plan/PLAN.md`**: Update current work section, mark as done
+3. **`apps/backend/app/main.py`**: Confirm router is registered

@@ -1,15 +1,15 @@
 # Docker & Database Rules
 
-## Alembic 마이그레이션
+## Alembic Migrations
 
-### 규칙
+### Rules
 
-1. **`upgrade()` + `downgrade()` 모두 구현 필수**
-2. 마이그레이션 파일은 직접 수정 금지 — 새 마이그레이션 생성
-3. 마이그레이션은 반드시 개발/스테이징에서 검증 후 프로덕션 적용
-4. 데이터 마이그레이션은 스키마 마이그레이션과 분리
+1. **Both `upgrade()` and `downgrade()` must be implemented**
+2. Never edit migration files directly — create a new migration instead
+3. Always validate migrations in dev/staging before applying to production
+4. Keep data migrations separate from schema migrations
 
-### 마이그레이션 파일 패턴
+### Migration File Pattern
 
 ```python
 # alembic/versions/20240101_add_users_table.py
@@ -47,52 +47,52 @@ def downgrade() -> None:
     op.drop_table('users')
 ```
 
-### 마이그레이션 커맨드
+### Migration Commands
 
 ```bash
-# 자동 생성 (모델 변경 감지)
+# Auto-generate (detects model changes)
 cd apps/backend && alembic revision --autogenerate -m "add users table"
 
-# 적용
+# Apply
 alembic upgrade head
 
-# 한 단계 롤백
+# Roll back one step
 alembic downgrade -1
 
-# 특정 버전으로 롤백
+# Roll back to specific version
 alembic downgrade <revision_id>
 
-# 현재 버전 확인
+# Check current version
 alembic current
 
-# 히스토리 확인
+# View history
 alembic history
 ```
 
 ---
 
-## DB 네이밍 컨벤션
+## DB Naming Conventions
 
-### 테이블
+### Tables
 
-| 규칙 | 예시 |
-|------|------|
-| `snake_case` 복수형 | `users`, `user_profiles`, `refresh_tokens` |
-| 조인 테이블 | `user_roles`, `post_tags` (양쪽 테이블명 조합) |
+| Rule | Example |
+|------|---------|
+| `snake_case` plural | `users`, `user_profiles`, `refresh_tokens` |
+| Join tables | `user_roles`, `post_tags` (combine both table names) |
 
-### 컬럼
+### Columns
 
-| 규칙 | 예시 |
-|------|------|
+| Rule | Example |
+|------|---------|
 | `snake_case` | `user_id`, `created_at`, `is_active` |
-| Boolean: `is_` 또는 `has_` prefix | `is_active`, `has_profile` |
-| 날짜/시간: `_at` suffix | `created_at`, `deleted_at`, `expires_at` |
-| 외래키: `{table_singular}_id` | `user_id`, `post_id` |
+| Boolean: `is_` or `has_` prefix | `is_active`, `has_profile` |
+| Date/time: `_at` suffix | `created_at`, `deleted_at`, `expires_at` |
+| Foreign key: `{table_singular}_id` | `user_id`, `post_id` |
 
-### 필수 컬럼 (모든 테이블)
+### Required Columns (all tables)
 
 ```python
-# ✅ 모든 테이블에 반드시 포함
+# ✅ Required in every table
 class BaseModel(Base):
     __abstract__ = True
 
@@ -110,24 +110,24 @@ class BaseModel(Base):
     )
 ```
 
-### 인덱스
+### Indexes
 
-- 외래키 컬럼에는 항상 인덱스 생성
-- 자주 검색되는 컬럼 (`email`, `slug`, `status`)에 인덱스
-- 복합 인덱스는 선택도(cardinality) 높은 컬럼 먼저
+- Always create an index on foreign key columns
+- Index frequently queried columns (`email`, `slug`, `status`)
+- Put higher-cardinality columns first in composite indexes
 
 ---
 
-## .env 관리
+## .env Management
 
-### 규칙
+### Rules
 
-1. **`.env` 파일은 절대 git에 커밋하지 않는다** (`.gitignore`에 포함)
-2. **`.env.example`만 커밋**: 실제 값 없이 키만 포함
-3. 새 환경변수 추가 시 `.env.example`도 반드시 업데이트
-4. 시크릿은 환경변수로만 관리 (코드에 하드코딩 금지)
+1. **Never commit `.env` files to git** (included in `.gitignore`)
+2. **Only commit `.env.example`**: keys only, no real values
+3. Always update `.env.example` when adding new environment variables
+4. Secrets must be managed via environment variables only (never hardcode in source)
 
-### .env.example 형식
+### .env.example Format
 
 ```bash
 # Database
@@ -152,7 +152,7 @@ ALLOWED_ORIGINS=http://localhost:3000
 
 ## Docker Compose
 
-### 개발 환경 구조
+### Dev Environment Structure
 
 ```yaml
 # docker/docker-compose.dev.yml
@@ -182,10 +182,10 @@ volumes:
   postgres_data:
 ```
 
-### 컨테이너 네이밍
+### Container Naming
 
-| 서비스 | 컨테이너명 |
-|--------|-----------|
+| Service | Container name |
+|---------|----------------|
 | PostgreSQL | `strongpm-postgres` |
 | Redis | `strongpm-redis` |
 | Backend | `strongpm-backend` |

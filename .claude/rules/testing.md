@@ -2,35 +2,35 @@
 
 ## Frontend (React + TypeScript)
 
-### 도구
+### Tools
 
-| 도구 | 역할 |
+| Tool | Role |
 |------|------|
-| **Vitest** | 테스트 러너 |
-| **React Testing Library** | 컴포넌트 렌더링 + 인터랙션 |
-| **msw (Mock Service Worker)** | API 요청 모킹 |
-| **@testing-library/user-event** | 사용자 이벤트 시뮬레이션 |
+| **Vitest** | Test runner |
+| **React Testing Library** | Component rendering + interaction |
+| **msw (Mock Service Worker)** | API request mocking |
+| **@testing-library/user-event** | User event simulation |
 
-### 핵심 원칙: 사용자 관점 테스트
+### Core Principle: Test from the User's Perspective
 
 ```typescript
-// ✅ GOOD: 사용자 행동 기반
-it('이름을 입력하고 저장 버튼을 누르면 저장된다', async () => {
+// ✅ GOOD: behavior-based
+it('saves when name is typed and save button is clicked', async () => {
   render(<ProfileForm />);
-  await userEvent.type(screen.getByLabelText('이름'), 'John');
-  await userEvent.click(screen.getByRole('button', { name: '저장' }));
-  expect(await screen.findByText('저장되었습니다')).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText('Name'), 'John');
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(await screen.findByText('Saved')).toBeInTheDocument();
 });
 
-// ❌ BAD: 구현 세부사항 테스트
-it('setState가 호출된다', () => {
+// ❌ BAD: testing implementation details
+it('calls setState', () => {
   const { result } = renderHook(() => useState(''));
   act(() => result.current[1]('John'));
   expect(result.current[0]).toBe('John');
 });
 ```
 
-### API 모킹 (msw)
+### API Mocking (msw)
 
 ```typescript
 // src/mocks/handlers.ts
@@ -42,61 +42,61 @@ export const handlers = [
   }),
 ];
 
-// 테스트에서 핸들러 오버라이드
-it('API 에러 시 에러 메시지를 표시한다', async () => {
+// Override handler in a test
+it('shows error message on API error', async () => {
   server.use(
     http.get('/api/users/:id', () =>
       HttpResponse.json({ error: 'Not found' }, { status: 404 })
     )
   );
   render(<UserProfile userId="999" />);
-  expect(await screen.findByText('사용자를 찾을 수 없습니다')).toBeInTheDocument();
+  expect(await screen.findByText('User not found')).toBeInTheDocument();
 });
 ```
 
-### 테스트 구조
+### Test Structure
 
 ```typescript
-describe('컴포넌트/훅 이름', () => {
+describe('ComponentName / HookName', () => {
   beforeEach(() => {
-    server.resetHandlers(); // msw 핸들러 초기화
+    server.resetHandlers(); // reset msw handlers
   });
 
-  describe('정상 케이스', () => {
-    it('기본 렌더링이 된다', () => { ... });
-    it('데이터 로드 후 목록을 표시한다', async () => { ... });
+  describe('happy path', () => {
+    it('renders by default', () => { ... });
+    it('displays list after data loads', async () => { ... });
   });
 
-  describe('에러 케이스', () => {
-    it('필수 입력 누락 시 에러 메시지를 표시한다', async () => { ... });
-    it('API 오류 시 에러 상태를 표시한다', async () => { ... });
+  describe('error cases', () => {
+    it('shows error message when required field is missing', async () => { ... });
+    it('shows error state on API failure', async () => { ... });
   });
 });
 ```
 
-### 커버리지 목표
+### Coverage Targets
 
-| 대상 | 목표 |
-|------|------|
-| 컴포넌트 (`*.tsx`) | **70%** 이상 |
-| 훅 (`use-*.ts`) | **90%** 이상 |
-| API 레이어 (`api/*.ts`) | **90%** 이상 |
-| 유틸리티 (`utils/*.ts`) | **95%** 이상 |
+| Target | Goal |
+|--------|------|
+| Components (`*.tsx`) | **70%** or above |
+| Hooks (`use-*.ts`) | **90%** or above |
+| API layer (`api/*.ts`) | **90%** or above |
+| Utilities (`utils/*.ts`) | **95%** or above |
 
 ---
 
 ## Backend (FastAPI + Python)
 
-### 도구
+### Tools
 
-| 도구 | 역할 |
+| Tool | Role |
 |------|------|
-| **pytest** | 테스트 러너 |
-| **pytest-asyncio** | 비동기 테스트 지원 |
-| **httpx / AsyncClient** | FastAPI 테스트 클라이언트 |
-| **pytest-cov** | 커버리지 측정 |
+| **pytest** | Test runner |
+| **pytest-asyncio** | Async test support |
+| **httpx / AsyncClient** | FastAPI test client |
+| **pytest-cov** | Coverage measurement |
 
-### conftest.py 픽스처 패턴
+### conftest.py Fixture Pattern
 
 ```python
 # tests/conftest.py
@@ -124,7 +124,7 @@ async def engine():
 
 @pytest.fixture
 async def db(engine) -> AsyncSession:
-    """각 테스트마다 트랜잭션 롤백으로 격리"""
+    """Isolate each test with transaction rollback"""
     async with engine.begin() as conn:
         async with AsyncSession(bind=conn) as session:
             yield session
@@ -138,24 +138,24 @@ async def client(db) -> AsyncClient:
         yield ac
 ```
 
-### 각 테스트 후 Rollback
+### Rollback After Each Test
 
 ```python
-# 트랜잭션 롤백으로 테스트 간 데이터 격리
+# Isolate tests with transaction rollback
 class TestCreateUser:
-    """POST /api/v1/users - 사용자 생성
+    """POST /api/v1/users - Create user
 
-    비즈니스 규칙:
-    1. 이메일은 고유해야 함
-    2. 생성 시 기본 역할은 'member'
+    Business rules:
+    1. Email must be unique
+    2. Default role on creation is 'member'
     """
 
     @pytest.mark.asyncio
     async def test_creates_user_successfully(self, client: AsyncClient):
-        """정상 생성
-        Given: 유효한 이메일과 이름
+        """Successful creation
+        Given: valid email and name
         When: POST /api/v1/users
-        Then: 201, 사용자 데이터 반환
+        Then: 201, returns user data
         """
         # Given
         payload = {"email": "test@example.com", "name": "Test User"}
@@ -171,10 +171,10 @@ class TestCreateUser:
 
     @pytest.mark.asyncio
     async def test_rejects_duplicate_email(self, client: AsyncClient, create_user):
-        """중복 이메일 거부
-        Given: 동일 이메일 사용자가 이미 존재
-        When: 같은 이메일로 POST
-        Then: 409 반환
+        """Reject duplicate email
+        Given: user with same email already exists
+        When: POST with the same email
+        Then: returns 409
         """
         # Given
         await create_user(email="dup@example.com")
@@ -188,27 +188,27 @@ class TestCreateUser:
         assert response.status_code == 409
 ```
 
-### 커버리지 목표
+### Coverage Targets
 
-| 대상 | 목표 |
-|------|------|
-| Service 레이어 | **90%** 이상 |
-| Repository 레이어 | **90%** 이상 |
-| Router (API 엔드포인트) | **80%** 이상 |
-| 유틸리티 | **95%** 이상 |
+| Target | Goal |
+|--------|------|
+| Service layer | **90%** or above |
+| Repository layer | **90%** or above |
+| Router (API endpoints) | **80%** or above |
+| Utilities | **95%** or above |
 
-### 테스트 실행
+### Running Tests
 
 ```bash
-# 전체 테스트
+# All tests
 pytest apps/backend/tests/ -v
 
-# 특정 모듈
+# Specific module
 pytest apps/backend/tests/test_users.py -v
 
-# 커버리지 포함
+# With coverage
 pytest apps/backend/tests/ --cov=app --cov-report=html
 
-# 빠른 실패 (첫 번째 실패 시 중단)
+# Fail fast (stop on first failure)
 pytest apps/backend/tests/ -x
 ```

@@ -1,52 +1,92 @@
 # Code Style Rules
 
-## TypeScript (Frontend)
+## Language
 
-### 기본 원칙
+**All code artifacts must be written in English.** This applies to:
 
-- **strict 모드 필수**: `tsconfig.json`에 `"strict": true` 설정
-- **`any` 타입 금지**: `unknown` 또는 구체 타입 사용. 불가피한 경우 `// eslint-disable-next-line @typescript-eslint/no-explicit-any` + 이유 주석 필수
-- **`as` 타입 단언 최소화**: 타입 가드(`typeof`, `instanceof`, `is` 반환 함수) 우선 사용
+- Variable, function, class, and type names
+- Code comments (`//`, `#`, `/* */`)
+- Test descriptions (`describe`, `it`, `test`, pytest docstrings)
+- Commit messages (see `git-workflow.md`)
+- File names and directory names
+- Error messages in source code
+- API field names and enum values
 
-### 타입 선언
+**Exception — UI-facing strings**: Hardcoded text that users see in the product (labels, placeholders, button text, etc.) follows the product language and is exempt from this rule.
 
 ```typescript
-// ✅ GOOD: interface 우선 (객체 형태)
+// ✅ GOOD
+// Fetch user profile and merge with default preferences
+const merged = mergeWithDefaults(profile)
+
+it('shows error message when email is empty', () => { ... })
+
+// ❌ BAD
+// 사용자 프로필을 가져와서 기본 설정과 합침
+const merged = mergeWithDefaults(profile)
+
+it('이메일이 비어있을 때 에러 메시지를 표시한다', () => { ... })
+```
+
+```python
+# ✅ GOOD
+async def get_user(user_id: int) -> Optional[UserDTO]:
+    """Fetch a single user by ID. Returns None if not found."""
+
+# ❌ BAD
+async def get_user(user_id: int) -> Optional[UserDTO]:
+    """ID로 사용자를 조회합니다. 없으면 None을 반환합니다."""
+```
+
+---
+
+## TypeScript (Frontend)
+
+### Core Principles
+
+- **Strict mode required**: set `"strict": true` in `tsconfig.json`
+- **No `any` type**: use `unknown` or a concrete type. If unavoidable, add `// eslint-disable-next-line @typescript-eslint/no-explicit-any` with a reason comment
+- **Minimize `as` type assertions**: prefer type guards (`typeof`, `instanceof`, `is` return functions)
+
+### Type Declarations
+
+```typescript
+// ✅ GOOD: prefer interface for object shapes
 interface User {
   id: string;
   name: string;
   email: string;
 }
 
-// ✅ GOOD: type은 유니온/인터섹션/유틸리티 타입에 사용
+// ✅ GOOD: use type for unions, intersections, and utility types
 type UserRole = 'admin' | 'member' | 'viewer';
 type PartialUser = Partial<User>;
 
-// ❌ BAD: any 사용
+// ❌ BAD: any usage
 const data: any = fetchUser();
 ```
 
-### 네이밍 컨벤션
+### Naming Conventions
 
-| 대상 | 규칙 | 예시 |
-|------|------|------|
-| 파일명 | `kebab-case` | `user-profile.tsx`, `use-auth.ts` |
-| 컴포넌트 | `PascalCase` | `UserProfile`, `AuthButton` |
-| 훅 | `camelCase` + `use` prefix | `useAuth`, `useUserProfile` |
-| 상수 | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT` |
-| 타입/인터페이스 | `PascalCase` | `UserProfile`, `ApiResponse` |
+| Target | Rule | Example |
+|--------|------|---------|
+| File name | `kebab-case` | `user-profile.tsx`, `use-auth.ts` |
+| Component | `PascalCase` | `UserProfile`, `AuthButton` |
+| Hook | `camelCase` + `use` prefix | `useAuth`, `useUserProfile` |
+| Constant | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT` |
+| Type / Interface | `PascalCase` | `UserProfile`, `ApiResponse` |
 
-### 컴포넌트 패턴
+### Component Pattern
 
 ```typescript
-// ✅ GOOD: 비즈니스 로직은 hooks로 분리
+// ✅ GOOD: extract business logic into hooks
 function UserProfile({ userId }: { userId: string }) {
   const { user, isLoading } = useUser(userId);
   if (isLoading) return <Spinner />;
   return <div>{user.name}</div>;
 }
 
-// ❌ BAD: 컴포넌트 내 비즈니스 로직 직접 작성
+// ❌ BAD: business logic written directly inside component
 function UserProfile({ userId }: { userId: string }) {
   const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
@@ -56,19 +96,19 @@ function UserProfile({ userId }: { userId: string }) {
 }
 ```
 
-### Import 순서
+### Import Order
 
 ```typescript
 // 1. React
 import { useState, useEffect } from 'react';
-// 2. 외부 라이브러리
+// 2. External libraries
 import { useQuery } from '@tanstack/react-query';
-// 3. 내부 절대 경로 (alias)
+// 3. Internal absolute paths (alias)
 import { Button } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
-// 4. 상대 경로
+// 4. Relative paths
 import { UserCard } from './user-card';
-// 5. 타입
+// 5. Types
 import type { User } from '@/types/user';
 ```
 
@@ -76,13 +116,13 @@ import type { User } from '@/types/user';
 
 ## Python (Backend)
 
-### 기본 원칙
+### Core Principles
 
-- **타입 힌트 필수**: 모든 함수의 파라미터와 반환값에 타입 선언
-- **ruff 사용**: 린트 + 포맷 모두 ruff 사용 (`black`, `isort` 대체)
-- **`Optional[X]` 표기**: Python 3.10+ union syntax(`X | None`)는 ruff 설정에 따라
+- **Type hints required**: declare types on all function parameters and return values
+- **Use ruff**: for both linting and formatting (replaces `black` and `isort`)
+- **`Optional[X]` notation**: whether to use Python 3.10+ union syntax (`X | None`) follows the ruff config
 
-### 타입 힌트
+### Type Hints
 
 ```python
 # ✅ GOOD
@@ -94,26 +134,26 @@ async def get_user(user_id: int) -> Optional[UserDTO]:
 async def create_user(name: str, email: str) -> UserDTO:
     ...
 
-# ❌ BAD: 타입 힌트 없음
+# ❌ BAD: missing type hints
 async def get_user(user_id):
     ...
 ```
 
-### 네이밍 컨벤션
+### Naming Conventions
 
-| 대상 | 규칙 | 예시 |
-|------|------|------|
-| 파일명 | `snake_case` | `user_service.py`, `auth_router.py` |
-| 클래스 | `PascalCase` | `UserService`, `AuthRepository` |
-| 함수/메서드 | `snake_case` | `get_user`, `create_session` |
-| 변수 | `snake_case` | `user_id`, `access_token` |
-| 상수 | `UPPER_SNAKE_CASE` | `MAX_TOKEN_EXPIRY` |
-| Enum 값 | `UPPER_SNAKE_CASE` | `UserStatus.ACTIVE` |
+| Target | Rule | Example |
+|--------|------|---------|
+| File name | `snake_case` | `user_service.py`, `auth_router.py` |
+| Class | `PascalCase` | `UserService`, `AuthRepository` |
+| Function / Method | `snake_case` | `get_user`, `create_session` |
+| Variable | `snake_case` | `user_id`, `access_token` |
+| Constant | `UPPER_SNAKE_CASE` | `MAX_TOKEN_EXPIRY` |
+| Enum value | `UPPER_SNAKE_CASE` | `UserStatus.ACTIVE` |
 
-### FastAPI 패턴
+### FastAPI Pattern
 
 ```python
-# ✅ GOOD: response_model 항상 명시
+# ✅ GOOD: always specify response_model
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
@@ -121,32 +161,32 @@ async def get_user(
 ) -> UserResponse:
     return await user_service.get_user(user_id)
 
-# ✅ GOOD: Depends()로 의존성 주입
+# ✅ GOOD: inject dependencies via Depends()
 def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
     return UserService(db)
 
-# ❌ BAD: response_model 누락, 의존성 직접 생성
+# ❌ BAD: missing response_model, dependency created directly
 @router.get("/users/{user_id}")
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    service = UserService(db)  # 직접 생성 지양
-    return await service.get_user(user_id)
+    service = UserService(db)  # avoid direct instantiation
+    return await user_service.get_user(user_id)
 ```
 
-### 계층 의존 방향
+### Layer Dependency Direction
 
 ```
 Router → Service → Repository → Model
-                 ↘ DTO/Schema (공유)
+                 ↘ DTO/Schema (shared)
 ```
 
-- **Router**: Service, Schema, Depends만 import
-- **Service**: Repository, DTO, Enum만 import. ORM 직접 접근 금지
-- **Repository**: Model, DTO만 import. `commit()` 금지 (`flush()`만 허용)
+- **Router**: import only Service, Schema, Depends
+- **Service**: import only Repository, DTO, Enum. No direct ORM access
+- **Repository**: import only Model, DTO. No `commit()` — only `flush()`
 
-### 에러 처리
+### Error Handling
 
 ```python
-# ✅ GOOD: 구체적인 예외
+# ✅ GOOD: specific exception
 from fastapi import HTTPException
 
 async def get_user(user_id: int) -> UserDTO:
@@ -162,14 +202,14 @@ except:
     pass
 ```
 
-### 시간 처리
+### Datetime Handling
 
 ```python
-# ✅ GOOD: 항상 UTC
+# ✅ GOOD: always UTC
 from datetime import datetime, timezone
 created_at = datetime.now(timezone.utc)
 
 # ❌ BAD
 datetime.utcnow()   # timezone-naive
-datetime.now()      # 로컬 타임존
+datetime.now()      # local timezone
 ```
