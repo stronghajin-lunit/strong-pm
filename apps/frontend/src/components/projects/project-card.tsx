@@ -6,18 +6,6 @@ interface ProjectCardProps {
   project: Project
 }
 
-const PROGRESS_COLOR: Record<Project['status'], string> = {
-  active: '#0F6E56',
-  planning: '#854F0B',
-  done: '#9B9A97',
-}
-
-const EMOJI_BG: Record<Project['status'], string> = {
-  active: '#E1F5EE',
-  planning: '#FAEEDA',
-  done: '#ECEAE6',
-}
-
 export function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter()
 
@@ -35,20 +23,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
       }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-[9px]">
-        <div>
-          <div className="text-[14px] font-semibold tracking-[-0.2px] mb-[3px]">
-            {project.name}
-          </div>
-          <Badge status={project.status} />
+      <div className="mb-[9px]">
+        <div className="text-[14px] font-semibold tracking-[-0.2px] mb-[3px]">
+          {project.name}
         </div>
-        <div
-          className="w-8 h-8 rounded-[8px] flex items-center justify-center text-[15px] shrink-0"
-          style={{ background: EMOJI_BG[project.status] }}
-          aria-hidden="true"
-        >
-          {project.emoji}
-        </div>
+        <Badge status={project.status} />
       </div>
 
       {/* Description */}
@@ -59,34 +38,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
         {project.description}
       </p>
 
-      {/* Progress bar */}
-      <div
-        className="h-[3px] rounded-[2px] mb-[9px] overflow-hidden"
-        style={{ background: 'var(--surface-3)' }}
-        role="progressbar"
-        aria-valuenow={project.progress}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`진행률 ${project.progress}%`}
-      >
-        <div
-          className="h-full rounded-[2px]"
-          style={{
-            width: `${project.progress}%`,
-            background: PROGRESS_COLOR[project.status],
-          }}
-        />
-      </div>
-
       {/* Footer */}
-      <div className="flex items-center justify-between">
-        <span
-          className="text-[11px] font-medium"
-          style={{ color: PROGRESS_COLOR[project.status] }}
-        >
-          {project.progress}% complete
-        </span>
-        <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>
+      <div className="flex justify-end">
+        <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
           {project.updatedAt}
         </span>
       </div>

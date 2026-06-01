@@ -1,7 +1,7 @@
 interface StatCardProps {
   label: string
   value: number | string
-  sub: string
+  sub?: string
   highlight?: boolean
 }
 
@@ -15,7 +15,7 @@ export function StatCard({ label, value, sub, highlight = false }: StatCardProps
       }}
     >
       <div
-        className="text-[10px] font-medium uppercase tracking-[0.05em] mb-[5px]"
+        className="text-[11px] font-medium uppercase tracking-[0.05em] mb-[5px]"
         style={{ color: 'var(--text-3)' }}
       >
         {label}
@@ -26,9 +26,11 @@ export function StatCard({ label, value, sub, highlight = false }: StatCardProps
       >
         {value}
       </div>
-      <div className="text-[11px] mt-[3px]" style={{ color: 'var(--text-3)' }}>
-        {sub}
-      </div>
+      {sub && (
+        <div className="text-[11px] mt-[3px]" style={{ color: 'var(--text-3)' }}>
+          {sub}
+        </div>
+      )}
     </div>
   )
 }
