@@ -12,6 +12,8 @@ export interface SprintRunRecord {
   sprintLabel: string
   projectName: string
   requestedAt: string
+  completedAt?: string
   status: RunStatus
   confluenceUrl: string | null
+  reflection?: string
 }
