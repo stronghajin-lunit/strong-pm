@@ -19,6 +19,7 @@ class JiraVersionData:
     jira_id: str
     label: str
     synced_at: datetime
+    release_date: str | None = None  # YYYY-MM-DD from Jira, None if not set
 
 
 @dataclass
@@ -121,6 +122,14 @@ async def _post(path: str, json: dict[str, Any], *, agile: bool = False) -> http
         raise JiraIntegrationError(f"Jira request failed: {exc}") from exc
 
 
+async def _put(path: str, json: dict[str, Any]) -> httpx.Response:
+    client = _get_client()
+    try:
+        return await client.put(path, json=json)
+    except httpx.HTTPError as exc:
+        raise JiraIntegrationError(f"Jira request failed: {exc}") from exc
+
+
 async def _agile_get(path: str, params: dict[str, Any] | None = None) -> httpx.Response:
     client = _get_agile_client()
     try:
@@ -162,6 +171,7 @@ async def fetch_fix_versions() -> list[JiraVersionData]:
                         jira_id=str(v["id"]),
                         label=str(v["name"]),
                         synced_at=now,
+                        release_date=v.get("releaseDate") or None,
                     )
                 )
             if data.get("isLast", True) or not values:
@@ -442,3 +452,109 @@ async def resolve_initiative_from_epic(epic_key: str) -> str | None:
     parent = pm_fields.get("parent") or {}
     parent_summary = ((parent.get("fields") or {}).get("summary") or "").strip()
     return parent_summary if parent_summary else None
+
+
+async def fetch_project_versions(project_key: str) -> list[JiraVersionData]:
+    """Return non-archived Fix Versions for a single project (with releaseDate)."""
+    now = datetime.now(UTC)
+    versions: list[JiraVersionData] = []
+    start_at = 0
+    while True:
+        response = await _get(
+            f"/rest/api/3/project/{project_key}/version",
+            params={"startAt": start_at, "maxResults": 50, "orderBy": "-releaseDate"},
+        )
+        data = _ensure_ok(response)
+        values: list[dict[str, Any]] = data.get("values", [])
+        for v in values:
+            if v.get("archived"):
+                continue
+            versions.append(
+                JiraVersionData(
+                    jira_id=str(v["id"]),
+                    label=str(v["name"]),
+                    synced_at=now,
+                    release_date=v.get("releaseDate") or None,
+                )
+            )
+        if data.get("isLast", True) or not values:
+            break
+        start_at += len(values)
+    return versions
+
+
+# ─── Version Assignment ───────────────────────────────────────────────────────
+
+_PERIOD_JQL_MAP = {
+    "15d": "15d",
+    "1m": "1M",
+    "2m": "2M",
+    "3m": "3M",
+}
+
+
+@dataclass
+class UnversionedTicketData:
+    key: str
+    summary: str
+    status: str
+    epic_key: str | None
+    epic_summary: str | None
+
+
+async def fetch_unversioned_tickets(
+    project_key: str,
+    period: str,
+) -> list[UnversionedTicketData]:
+    """Return tickets with no fix version created within the given period."""
+    jql_period = _PERIOD_JQL_MAP.get(period, "1M")
+    jql = (
+        f"project = {project_key} AND fixVersion is EMPTY "
+        f"AND created >= -{jql_period} ORDER BY created DESC"
+    )
+    tickets: list[UnversionedTicketData] = []
+    start_at = 0
+    while True:
+        params: dict[str, Any] = {
+            "jql": jql,
+            "fields": "summary,status,parent,issuetype",
+            "startAt": start_at,
+            "maxResults": 100,
+        }
+        response = await _get("/rest/api/3/search", params=params)
+        data = _ensure_ok(response)
+        issues: list[dict[str, Any]] = data.get("issues", [])
+        for issue in issues:
+            fields = issue.get("fields") or {}
+            issue_type = (fields.get("issuetype") or {}).get("name", "")
+            if issue_type in ("Epic", "Sub-task", "Subtask"):
+                continue
+            epic_key, epic_summary = _parse_epic(fields)
+            tickets.append(
+                UnversionedTicketData(
+                    key=str(issue["key"]),
+                    summary=str(fields.get("summary") or ""),
+                    status=str((fields.get("status") or {}).get("name", "")),
+                    epic_key=epic_key,
+                    epic_summary=epic_summary,
+                )
+            )
+        total = data.get("total", 0)
+        start_at += len(issues)
+        if start_at >= total or not issues:
+            break
+    return tickets
+
+
+async def assign_fix_version(issue_key: str, version_id: str) -> None:
+    """Append a fix version to a Jira issue without removing existing versions."""
+    body: dict[str, Any] = {
+        "update": {
+            "fixVersions": [{"add": {"id": version_id}}]
+        }
+    }
+    response = await _put(f"/rest/api/3/issue/{issue_key}", body)
+    if response.status_code >= 400:
+        raise JiraIntegrationError(
+            f"Failed to assign version {version_id} to {issue_key}: {response.status_code}"
+        )

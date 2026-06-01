@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { VersionAssignmentTable } from '@/components/releases/version-assignment-table'
 import { VersionAssignModal } from '@/components/releases/version-assign-modal'
-import { MOCK_JIRA_VERSIONS, MOCK_UNVERSIONED_TICKETS } from '@/mocks/version-assignment'
+import {
+  fetchVersionOptions,
+  fetchUnversionedTickets,
+  assignVersion,
+} from '@/api/version-assignment'
 import type { JiraTicket, JiraVersion, EpicGroup, FilterPeriod } from '@/types/version-assignment'
 
 const FILTER_OPTIONS: { value: FilterPeriod; label: string }[] = [
@@ -19,21 +23,32 @@ export default function VersionAssignmentPage() {
 
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('1m')
   const [searchQuery, setSearchQuery] = useState('')
-  const [tickets, setTickets] = useState<JiraTicket[]>(MOCK_UNVERSIONED_TICKETS)
+  const [tickets, setTickets] = useState<JiraTicket[]>([])
+  const [versions, setVersions] = useState<JiraVersion[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedVersion, setSelectedVersion] = useState<JiraVersion | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     setTopbarTitle('Version Assignment')
+    void fetchVersionOptions().then(setVersions).catch(() => setVersions([]))
   }, [setTopbarTitle])
 
-  const sortedVersions = useMemo(
-    () => [...MOCK_JIRA_VERSIONS].sort((a, b) => a.releaseDate.localeCompare(b.releaseDate)),
-    [],
-  )
+  const loadTickets = useCallback((period: FilterPeriod) => {
+    setIsLoading(true)
+    setSelectedIds(new Set())
+    void fetchUnversionedTickets(period)
+      .then(setTickets)
+      .catch(() => setTickets([]))
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadTickets(filterPeriod)
+  }, [filterPeriod, loadTickets])
 
   const groups = useMemo<EpicGroup[]>(() => {
     const filtered = tickets.filter((t) => {
@@ -87,19 +102,29 @@ export default function VersionAssignmentPage() {
     })
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (!selectedVersion) return
     setShowModal(false)
-    const idsToAssign = new Set(selectedIds)
-    const count = idsToAssign.size
-    const versionName = selectedVersion!.name
 
-    setTickets((prev) => prev.filter((t) => !idsToAssign.has(t.id)))
-    setSelectedIds(new Set())
-    setFailedIds(new Set())
+    const idsToAssign = [...selectedIds]
+    const versionName = selectedVersion.name
+
+    const result = await assignVersion(idsToAssign, selectedVersion.id).catch(() => ({
+      succeeded: [] as string[],
+      failed: idsToAssign,
+    }))
+
+    const succeededSet = new Set(result.succeeded)
+    setTickets((prev) => prev.filter((t) => !succeededSet.has(t.id)))
+    setFailedIds(new Set(result.failed))
+    setSelectedIds(new Set(result.failed))
     setSelectedVersion(null)
 
-    setToast(`${count} ticket${count !== 1 ? 's' : ''} assigned to ${versionName}`)
-    setTimeout(() => setToast(null), 3500)
+    const count = result.succeeded.length
+    if (count > 0) {
+      setToast(`${count} ticket${count !== 1 ? 's' : ''} assigned to ${versionName}`)
+      setTimeout(() => setToast(null), 3500)
+    }
   }
 
   const canApply = selectedIds.size > 0 && selectedVersion !== null
@@ -160,11 +185,11 @@ export default function VersionAssignmentPage() {
           {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'None selected'}
         </span>
 
-        {/* Version dropdown */}
+        {/* Version dropdown — releaseDate 내림차순, 최대 8개 (서버에서 처리됨) */}
         <select
           value={selectedVersion?.id ?? ''}
           onChange={(e) => {
-            const v = sortedVersions.find((ver) => ver.id === e.target.value) ?? null
+            const v = versions.find((ver) => ver.id === e.target.value) ?? null
             setSelectedVersion(v)
           }}
           disabled={selectedIds.size === 0}
@@ -176,7 +201,7 @@ export default function VersionAssignmentPage() {
           }}
         >
           <option value="">— Select version —</option>
-          {sortedVersions.map((v) => (
+          {versions.map((v) => (
             <option key={v.id} value={v.id}>{v.name}</option>
           ))}
         </select>
@@ -196,21 +221,30 @@ export default function VersionAssignmentPage() {
         </button>
       </div>
 
+      {/* Loading */}
+      {isLoading && (
+        <p className="text-[12px] text-center py-8" style={{ color: 'var(--text-3)' }}>
+          Loading tickets…
+        </p>
+      )}
+
       {/* Table */}
-      <VersionAssignmentTable
-        groups={groups}
-        selectedIds={selectedIds}
-        failedIds={failedIds}
-        onToggleTicket={handleToggleTicket}
-        onToggleEpic={handleToggleEpic}
-      />
+      {!isLoading && (
+        <VersionAssignmentTable
+          groups={groups}
+          selectedIds={selectedIds}
+          failedIds={failedIds}
+          onToggleTicket={handleToggleTicket}
+          onToggleEpic={handleToggleEpic}
+        />
+      )}
 
       {/* Preview modal */}
       {showModal && selectedVersion && (
         <VersionAssignModal
           tickets={selectedTickets}
           version={selectedVersion}
-          onConfirm={handleConfirm}
+          onConfirm={() => { void handleConfirm() }}
           onCancel={() => setShowModal(false)}
         />
       )}
