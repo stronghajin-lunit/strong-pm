@@ -18,6 +18,7 @@ from app.schemas.sprint_report import (
 from app.utils import fmt_dt, fmt_dt_required
 from app.utils.sprint_config import (
     classify_initiative_from_summary,
+    clean_summary,
     extract_initiative,
     extract_sprint_number,
     is_dropped,
@@ -126,7 +127,7 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
         key = (initiative, epic_name)
 
         g = groups[key]
-        g["summaries"].append(issue.summary)
+        g["summaries"].append(clean_summary(issue.summary))
 
         if issue.issue_type == "Story":
             g["story_count"] += 1

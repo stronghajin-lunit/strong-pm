@@ -30,13 +30,21 @@ _INITIATIVE_PATTERNS: list[tuple[str, str]] = [
     ("release prep", "Release Preparation"),
 ]
 
-_DEFAULT_INITIATIVE = "Bug Fixes & Improvements"
-
 # Dropped statuses (excluded from summary)
 _DROPPED_STATUSES: set[str] = {"dropped"}
 
 # Initiative regex: strip leading [...]
 _INITIATIVE_RE = re.compile(r"\[.*?\]\s*(.+)")
+
+# Summary prefix patterns to strip before display
+_SUMMARY_PREFIX_PATTERNS = [
+    # "ODM > API > ", "Annotation Admin > UI > " etc.
+    re.compile(r"^[^>]+>\s*[^>]+>\s*"),
+    # "[Customer Request] - ", "[ONCO] - ", "[Tag]: "
+    re.compile(r"^\[.*?\]\s*[-:]\s*"),
+    # "[Tag] " standalone bracket prefix
+    re.compile(r"^\[.*?\]\s+"),
+]
 
 # Sprint number → Week number
 _SPRINT_BASE = 75
@@ -68,6 +76,15 @@ def normalize_epic(epic_summary: str) -> str:
     return _EPIC_RENAMES.get(epic_summary, epic_summary)
 
 
+def clean_summary(summary: str) -> str:
+    """Strip common Jira ticket prefixes (product/area path, bracket tags)."""
+    for pattern in _SUMMARY_PREFIX_PATTERNS:
+        cleaned = pattern.sub("", summary).strip()
+        if cleaned and cleaned != summary:
+            return cleaned
+    return summary
+
+
 def extract_initiative(pm_parent_summary: str) -> str:
     """Strip [] prefix from PM parent epic summary."""
     m = _INITIATIVE_RE.match(pm_parent_summary.strip())
@@ -80,7 +97,8 @@ def classify_initiative_from_summary(summary: str) -> str:
     for keyword, initiative in _INITIATIVE_PATTERNS:
         if keyword in lower:
             return initiative
-    return _DEFAULT_INITIATIVE
+    # PM ticket chain not resolved — leave blank rather than guessing
+    return ""
 
 
 def is_dropped(status: str) -> bool:
