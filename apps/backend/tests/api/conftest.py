@@ -89,8 +89,23 @@ def stub_ai(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _generate_ticket_action(feature_description: str) -> JiraTicketAction:
         return JiraTicketAction(action="Add License Field to Block Registration Form")
 
+    async def _generate_ticket_description(
+        feature_description: str, definition_of_done: str, issue_type: str
+    ) -> str:
+        return (
+            "Context\n"
+            "Add a license field to the block registration form so users can associate "
+            "a license with each block.\n\n"
+            "DoD\n"
+            "- [ ] License dropdown is displayed on the block registration form\n"
+            "- [ ] Selected license_id is sent to POST /api/v1/blocks"
+        )
+
     monkeypatch.setattr(ai_integration, "generate_release_note", _generate_release_note)
     monkeypatch.setattr(ai_integration, "generate_ticket_action", _generate_ticket_action)
+    monkeypatch.setattr(
+        ai_integration, "generate_ticket_description", _generate_ticket_description
+    )
 
 
 _STUB_SPRINTS: list[JiraSprintData] = [

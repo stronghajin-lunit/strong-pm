@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
@@ -17,7 +18,7 @@ from app.schemas.jira_ticket import (
     JiraTicketRunResponse,
 )
 from app.utils import fmt_dt_required, make_jt_id
-from app.utils.ticket_config import detect_area, format_description, get_labels
+from app.utils.ticket_config import detect_area, get_labels
 
 
 def _to_response(run: JiraTicketRun) -> JiraTicketRunResponse:
@@ -46,18 +47,18 @@ async def run(db: AsyncSession, body: JiraTicketRunRequest) -> JiraTicketRunResp
     # Detect area from feature description keywords
     area = detect_area(body.feature_description)
 
-    # AI generates only the action phrase (verb + feature name)
-    ticket_action = await ai.generate_ticket_action(body.feature_description)
+    # AI generates action phrase and description in parallel
+    ticket_action, description = await asyncio.gather(
+        ai.generate_ticket_action(body.feature_description),
+        ai.generate_ticket_description(
+            feature_description=body.feature_description,
+            definition_of_done=body.definition_of_done,
+            issue_type=body.type,
+        ),
+    )
 
     # Build summary: {Product} > {Area} > {action}
     summary = f"{body.product} > {area} > {ticket_action.action}"
-
-    # Format description from template (no AI)
-    description = format_description(
-        feature_description=body.feature_description,
-        definition_of_done=body.definition_of_done,
-        issue_type=body.type,
-    )
 
     # Determine labels from config mapping + special keywords
     labels = get_labels(body.product, area, body.feature_description)

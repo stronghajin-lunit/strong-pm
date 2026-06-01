@@ -128,6 +128,76 @@ _JIRA_TICKET_SUMMARY_SYSTEM = (
 )
 
 
+_JIRA_TICKET_DESCRIPTION_SYSTEM = (
+    "You write Jira ticket descriptions for a medical AI software team.\n"
+    "Given a feature description and a Definition of Done, produce exactly two sections.\n"
+    "\n"
+    "Output format (plain text, no Markdown headers or fences):\n"
+    "Context\n"
+    "<2–3 sentences. Explain what needs to be built and why, using reasonable inference "
+    "about the system based on the input. Write in English. Be specific and engineer-facing.>\n"
+    "\n"
+    "DoD\n"
+    "<Expand the given DoD into concrete checkbox items. Each line: '- [ ] ...'.\n"
+    "Add sub-tasks implied by the input (e.g. responsive layout, design review) "
+    "but do not invent unrelated requirements.>\n"
+    "\n"
+    "Rules:\n"
+    "- No Background section, no Scope section, no other sections.\n"
+    "- Infer reasonably from the input; do not fabricate unrelated details.\n"
+    "- Write Context in English even if the input is in Korean."
+)
+
+
+async def generate_ticket_description(
+    feature_description: str,
+    definition_of_done: str,
+    issue_type: str,
+) -> str:
+    """Generate formatted ticket description (Context+DoD or Bug template) via Claude."""
+    client = _get_client()
+
+    if issue_type.lower() == "bug":
+        system = (
+            "You write Jira bug ticket descriptions.\n"
+            "Given a bug description and expected behaviour, produce:\n"
+            "\n"
+            "Current behaviour\n"
+            "<concise description of the bug>\n"
+            "\n"
+            "Expected behaviour\n"
+            "<what should happen instead, as checkbox items '- [ ] ...'>\n"
+            "\n"
+            "No other sections. Plain text only."
+        )
+        user_content = (
+            f"Current behaviour (raw):\n{feature_description}\n\n"
+            f"Expected behaviour (raw):\n{definition_of_done}"
+        )
+    else:
+        system = _JIRA_TICKET_DESCRIPTION_SYSTEM
+        user_content = (
+            f"Feature Description:\n{feature_description}\n\n"
+            f"Definition of Done:\n{definition_of_done}"
+        )
+
+    try:
+        response = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=512,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    body = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not body:
+        raise AIIntegrationError("Anthropic returned empty ticket description")
+    return body
+
+
 async def generate_ticket_action(feature_description: str) -> JiraTicketAction:
     """Generate a verb+feature_name action phrase for the Jira summary."""
     client = _get_client()
