@@ -25,8 +25,8 @@ export default function SprintReportPage() {
 
   useEffect(() => {
     setTopbarTitle('Sprint Report Creator')
-    void fetchSprintOptions().then(setSprintOptions)
-    void fetchSprintReports().then(setHistory)
+    void fetchSprintOptions().then(setSprintOptions).catch(() => setSprintOptions([]))
+    void fetchSprintReports().then(setHistory).catch(() => setHistory([]))
   }, [setTopbarTitle])
 
   const handleRunComplete = (record: SprintRunRecord) => {
