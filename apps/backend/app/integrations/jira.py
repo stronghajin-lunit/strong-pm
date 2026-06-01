@@ -515,15 +515,16 @@ async def fetch_unversioned_tickets(
         f"ORDER BY created DESC"
     )
     tickets: list[UnversionedTicketData] = []
-    start_at = 0
+    next_token: str | None = None
     while True:
         params: dict[str, Any] = {
             "jql": jql,
             "fields": "summary,status,parent,issuetype",
-            "startAt": start_at,
             "maxResults": 100,
         }
-        response = await _get("/rest/api/3/search", params=params)
+        if next_token:
+            params["nextPageToken"] = next_token
+        response = await _get("/rest/api/3/search/jql", params=params)
         data = _ensure_ok(response)
         issues: list[dict[str, Any]] = data.get("issues", [])
         for issue in issues:
@@ -538,9 +539,8 @@ async def fetch_unversioned_tickets(
                     epic_summary=epic_summary,
                 )
             )
-        total = data.get("total", 0)
-        start_at += len(issues)
-        if start_at >= total or not issues:
+        next_token = data.get("nextPageToken")
+        if data.get("isLast", True) or not next_token:
             break
     return tickets
 
