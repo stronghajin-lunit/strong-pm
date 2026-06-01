@@ -309,21 +309,22 @@ class SprintIssueData:
 
 _SPRINT_ISSUE_FIELDS = (
     "summary,issuetype,status,assignee,"
-    # story points — field ID varies by Jira instance; try all common ones
+    "customfield_10031,"  # story points (confirmed field ID for lunit.atlassian.net)
     "customfield_10016,customfield_10028,customfield_10004,customfield_10008,"
     "customfield_10030,customfield_10034,story_points,"
     "parent,issuelinks"
 )
 
-# Common story-points field IDs across Jira Cloud instances
+# Story-points field IDs — customfield_10031 is confirmed for this Jira instance
 _SP_FIELD_IDS = (
-    "customfield_10016",  # most common in classic projects
-    "customfield_10028",  # some team-managed projects
-    "customfield_10004",  # legacy/older configs
-    "customfield_10008",  # enterprise configs
+    "customfield_10031",  # confirmed: lunit.atlassian.net
+    "customfield_10016",
+    "customfield_10028",
+    "customfield_10004",
+    "customfield_10008",
     "customfield_10030",
     "customfield_10034",
-    "story_points",       # Agile API alias
+    "story_points",
 )
 
 
