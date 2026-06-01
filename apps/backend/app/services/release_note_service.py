@@ -6,8 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import jira_ticket as jira_ticket_crud
 from app.crud import jira_version as jira_version_crud
 from app.crud import release_note as release_note_crud
-from app.integrations import confluence, jira
-from app.integrations.ai import generate_release_note
+from app.integrations import ai, confluence, jira
 from app.models.jira_version import JiraVersion
 from app.models.release_note import ReleaseNote
 from app.schemas.release_note import (
@@ -53,7 +52,7 @@ async def run(db: AsyncSession, jira_version_id: str, confluence_page: str) -> R
     )
     version_record = versions[0]
 
-    content = await generate_release_note(version_data.label, raw_tickets)
+    content = await ai.generate_release_note(version_data.label, raw_tickets)
     publish_result = await confluence.publish_release_note(
         confluence_page, version_data.label, content.body
     )

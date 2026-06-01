@@ -12,8 +12,10 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app.integrations import ai as ai_integration
 from app.integrations import confluence as confluence_integration
 from app.integrations import jira as jira_integration
+from app.integrations.ai import ReleaseNoteContent
 from app.integrations.confluence import ConfluencePublishResult
 from app.integrations.jira import JiraTicketData, JiraVersionData
 
@@ -73,3 +75,14 @@ def stub_confluence(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(confluence_integration, "publish_release_note", _publish_release_note)
+
+
+@pytest.fixture(autouse=True)
+def stub_ai(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _generate_release_note(
+        jira_version_label: str, tickets: list[JiraTicketData]
+    ) -> ReleaseNoteContent:
+        lines = "\n".join(f"- {t.ticket_id}: {t.title}" for t in tickets)
+        return ReleaseNoteContent(body=f"## {jira_version_label}\n\n### Changes\n\n{lines}\n")
+
+    monkeypatch.setattr(ai_integration, "generate_release_note", _generate_release_note)

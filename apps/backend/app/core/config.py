@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     CONFLUENCE_ODM_PARENT_ID: str = ""
     CONFLUENCE_ANNOTATION_PARENT_ID: str = ""
 
+    # AI (Anthropic Claude) — release-note generation.
+    ANTHROPIC_API_KEY: str = ""
+    AI_MODEL: str = "claude-opus-4-8"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]

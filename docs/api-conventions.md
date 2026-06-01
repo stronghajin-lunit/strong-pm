@@ -70,6 +70,7 @@
 - `JIRA_VERSION_NOT_FOUND` (404) — 존재하지 않는 Jira fix version
 - `JIRA_UPSTREAM_ERROR` (502) — Jira 인증 실패/네트워크 오류 등 업스트림 장애
 - `CONFLUENCE_UPSTREAM_ERROR` (502) — Confluence 발행 실패/설정 누락 등 업스트림 장애
+- `AI_UPSTREAM_ERROR` (502) — Anthropic 호출 실패/키 누락 등 업스트림 장애
 - `INVALID_CONFLUENCE_PAGE` (400), `NOT_FOUND` (404), `CONFLICT` (409)
 
 ---
@@ -80,8 +81,8 @@
 |--------|------|----------------|
 | **Jira** (fix version/티켓 조회) | ✅ 실연동 (Atlassian Cloud REST v3) | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEYS` |
 | **Confluence** (릴리즈노트 발행) | ✅ 실연동 (Atlassian Cloud REST v2) | (인증은 Jira와 공유) `CONFLUENCE_SPACE_KEY`, `CONFLUENCE_ODM_PARENT_ID`, `CONFLUENCE_ANNOTATION_PARENT_ID` |
+| **AI** (릴리즈노트 생성) | ✅ 실연동 (Anthropic Claude) | `ANTHROPIC_API_KEY`, `AI_MODEL`(기본 `claude-opus-4-8`) |
 | GitHub (배포 PR 대조) | 🟡 mock | - |
-| AI (릴리즈노트 생성) | 🟡 mock (다음: Anthropic Claude) | - |
 
 - `JIRA_PROJECT_KEYS`: 쉼표 구분 (예: `RAD,ODM`)
 - **Confluence는 Jira와 같은 Atlassian 자격증명**(`JIRA_BASE_URL`/`EMAIL`/`API_TOKEN`)을 재사용하고, `/wiki` 경로로 호출. 릴리즈노트는 지정 부모 페이지(odm/annotation) 아래 **새 자식 페이지**로 발행.
