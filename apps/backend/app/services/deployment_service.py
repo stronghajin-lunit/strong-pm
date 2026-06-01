@@ -8,11 +8,9 @@ from app.crud import deployment as deployment_crud
 from app.crud import jira_ticket as jira_ticket_crud
 from app.crud import jira_version as jira_version_crud
 from app.crud import repo as repo_crud
+from app.integrations import jira
 from app.integrations.github import fetch_deployment_data
-from app.integrations.jira import fetch_fix_versions, fetch_tickets_by_version
-from app.models.deployment import Deployment, DeploymentRepo, DeploymentTicket
 from app.models.jira_ticket import JiraTicket
-from app.models.jira_version import JiraVersion
 from app.models.repo import Repo
 from app.schemas.deployment import (
     DeploymentDetailResponse,
@@ -34,12 +32,12 @@ def _parse_repo_name(repo_with_tag: str) -> tuple[str, str]:
 
 
 async def run(db: AsyncSession, jira_version_id: str) -> DeploymentDetailResponse:
-    raw_versions = await fetch_fix_versions()
+    raw_versions = await jira.fetch_fix_versions()
     version_data = next((v for v in raw_versions if v.jira_id == jira_version_id), None)
     if version_data is None:
         raise HTTPException(status_code=404, detail={"code": "JIRA_VERSION_NOT_FOUND"})
 
-    raw_tickets = await fetch_tickets_by_version(jira_version_id)
+    raw_tickets = await jira.fetch_tickets_by_version(jira_version_id)
     if raw_tickets is None:
         raise HTTPException(status_code=404, detail={"code": "JIRA_VERSION_NOT_FOUND"})
 
@@ -184,8 +182,8 @@ async def get_detail(db: AsyncSession, dt_id: str) -> DeploymentDetailResponse:
     repo_db_ids = [dr.repo_id for dr in dep_repos]
     repo_records: dict[int, Repo] = {}
     if repo_db_ids:
-        res = await db.execute(select(Repo).where(Repo.id.in_(repo_db_ids)))
-        for r in res.scalars().all():
+        repo_res = await db.execute(select(Repo).where(Repo.id.in_(repo_db_ids)))
+        for r in repo_res.scalars().all():
             repo_records[r.id] = r
 
     repo_strings = [

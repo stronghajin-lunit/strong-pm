@@ -16,7 +16,7 @@ class TestListJiraVersions:
     @pytest.mark.asyncio
     async def test_returns_synced_versions(self, client: AsyncClient) -> None:
         """Return the Jira Fix Version list
-        Given: the mock Jira source exposes three Fix Versions
+        Given: the stubbed Jira integration exposes three Fix Versions
         When: GET /api/v1/jira-versions
         Then: 200, all three versions are returned with id and label
         """

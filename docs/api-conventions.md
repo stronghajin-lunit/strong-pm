@@ -64,6 +64,26 @@
 | 409 | 충돌 (중복 등) |
 | 422 | 검증 실패 |
 | 500 | 서버 에러 |
+| 502 | 외부 서비스(업스트림) 호출 실패 (예: Jira) |
+
+에러 `code` 예시:
+- `JIRA_VERSION_NOT_FOUND` (404) — 존재하지 않는 Jira fix version
+- `JIRA_UPSTREAM_ERROR` (502) — Jira 인증 실패/네트워크 오류 등 업스트림 장애
+- `INVALID_CONFLUENCE_PAGE` (400), `NOT_FOUND` (404), `CONFLICT` (409)
+
+---
+
+## 외부 서비스 연동
+
+| 서비스 | 상태 | 필요 환경변수 |
+|--------|------|----------------|
+| **Jira** (fix version/티켓 조회) | ✅ 실연동 (Atlassian Cloud REST v3) | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEYS` |
+| GitHub (배포 PR 대조) | 🟡 mock | - |
+| Confluence (릴리즈노트 발행) | 🟡 mock | - |
+| AI (릴리즈노트 생성) | 🟡 mock (다음: Anthropic Claude) | - |
+
+- `JIRA_PROJECT_KEYS`: 쉼표 구분 (예: `RAD,ODM`)
+- 자격증명 미설정 시 Jira 호출은 `502 JIRA_UPSTREAM_ERROR`로 실패 (mock 폴백 없음)
 
 ---
 
@@ -73,4 +93,11 @@
 
 | 메서드 | 경로 | 설명 | 추가일 |
 |--------|------|------|--------|
-| - | - | (구현 시 추가) | - |
+| GET | `/api/v1/health` | 헬스체크 | 2026-04 |
+| GET | `/api/v1/jira-versions` | Jira fix version 목록(동기화) | 2026-04 |
+| POST | `/api/v1/release-notes/run` | 릴리즈노트 생성+발행 | 2026-05 |
+| GET | `/api/v1/release-notes` | 릴리즈노트 목록 | 2026-05 |
+| PATCH | `/api/v1/release-notes/{id}/reflection` | 반영(회고) 1회 등록 | 2026-05 |
+| POST | `/api/v1/deployments/run` | 티켓↔GitHub PR 배포 대조 | 2026-05 |
+| GET | `/api/v1/deployments` | 배포 스냅샷 목록 | 2026-05 |
+| GET | `/api/v1/deployments/{id}` | 배포 상세 | 2026-05 |
