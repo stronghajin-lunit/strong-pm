@@ -13,15 +13,23 @@ export function Sidebar() {
   const openNewProjectModal = useUIStore((s) => s.openNewProjectModal)
   const [isReleasesOpen, setIsReleasesOpen] = useState(true)
   const [isPMOpen, setIsPMOpen] = useState(true)
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false)
+
+  const activeProjects = projects.filter((p) => p.status !== 'done')
+  const archivedProjects = projects.filter((p) => p.status === 'done')
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const isReleasesActive = pathname.startsWith('/releases')
-  const isPMActive = pathname.startsWith('/prd-writer') || pathname.startsWith('/jira-ticket-writer')
+  const isPMActive = pathname.startsWith('/prd-writer') || pathname.startsWith('/jira-ticket-writer') || pathname.startsWith('/slack')
 
   return (
     <aside
       className="w-[224px] shrink-0 flex flex-col h-screen"
-      style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
+      style={{
+        background: 'var(--surface)',
+        borderRight: '1px solid #D1D9EC',
+        boxShadow: '2px 0 12px rgba(30,64,175,0.06)',
+      }}
     >
       {/* Logo */}
       <div
@@ -43,7 +51,7 @@ export function Sidebar() {
       <nav
         className="p-2"
         style={{ borderBottom: '1px solid var(--border)' }}
-        aria-label="주요 메뉴"
+        aria-label="Main menu"
       >
         <NavItem href="/projects" label="Home" active={isActive('/projects')}>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -59,16 +67,6 @@ export function Sidebar() {
             <circle cx="4" cy="12" r="2" />
             <circle cx="12" cy="4" r="2" />
             <path d="M4 6v4M6 4h3a1 1 0 0 1 1 1v5" />
-          </svg>
-        </NavItem>
-
-        <NavItem href="/slack" label="Slack Q&A Linker" active={isActive('/slack')}>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M5.5 2a1.5 1.5 0 0 0 0 3H7V3.5A1.5 1.5 0 0 0 5.5 2z" />
-            <path d="M10.5 2a1.5 1.5 0 0 1 0 3H9V3.5A1.5 1.5 0 0 1 10.5 2z" />
-            <path d="M2 6.5h5v2H2zM9 6.5h5v2H9z" />
-            <path d="M5.5 9a1.5 1.5 0 0 0-1.5 1.5V12h3v-1.5A1.5 1.5 0 0 0 5.5 9z" />
-            <path d="M10.5 9a1.5 1.5 0 0 1 1.5 1.5V12H9v-1.5A1.5 1.5 0 0 1 10.5 9z" />
           </svg>
         </NavItem>
 
@@ -90,13 +88,13 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto p-2 pt-2">
         {/* Projects */}
         <div
-          className="text-[10px] font-semibold uppercase tracking-[0.06em] px-2 pb-[6px] pt-1"
+          className="text-[11px] font-semibold uppercase tracking-[0.06em] px-2 pb-[6px] pt-1"
           style={{ color: 'var(--text-3)' }}
         >
           Projects
         </div>
         <div className="flex flex-col gap-[1px]">
-          {projects.map((project) => (
+          {activeProjects.map((project) => (
             <Link
               key={project.id}
               href={`/projects/${project.id}`}
@@ -127,6 +125,70 @@ export function Sidebar() {
           ))}
         </div>
 
+        {archivedProjects.length > 0 && (
+          <div className="mt-[2px]">
+            <button
+              type="button"
+              onClick={() => setIsArchiveOpen((prev) => !prev)}
+              className="w-full flex items-center gap-[5px] px-2 py-[5px] rounded-[6px] transition-colors"
+              style={{ color: 'var(--text-3)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+            >
+              <span
+                className="transition-transform duration-[180ms]"
+                style={{ transform: isArchiveOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              >
+                <svg viewBox="0 0 16 16" fill="currentColor" width="9" height="9">
+                  <path d="M6 4l4 4-4 4V4z" />
+                </svg>
+              </span>
+              <span className="text-[11px] font-semibold flex-1 text-left">Archive</span>
+              <span
+                className="text-[10px] font-semibold px-[5px] py-[1px] rounded-full"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-3)' }}
+              >
+                {archivedProjects.length}
+              </span>
+            </button>
+
+            {isArchiveOpen && (
+              <div className="flex flex-col gap-[1px] mt-[1px]">
+                {archivedProjects.map((project) => (
+                  <Link
+                    key={project.id}
+                    href={`/projects/${project.id}`}
+                    className="flex items-center gap-2 px-2 py-[6px] rounded-[8px] transition-colors"
+                    style={{
+                      opacity: 0.5,
+                      ...(isActive(`/projects/${project.id}`) ? { background: 'var(--accent-light)', opacity: 1 } : {}),
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '1'
+                      if (!isActive(`/projects/${project.id}`)) {
+                        e.currentTarget.style.background = 'var(--surface-2)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive(`/projects/${project.id}`)) {
+                        e.currentTarget.style.opacity = '0.5'
+                        e.currentTarget.style.background = ''
+                      }
+                    }}
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" width="9" height="9" style={{ color: 'var(--text-3)', flexShrink: 0 }}>
+                      <path d="M3 8l3.5 3.5L13 4" />
+                    </svg>
+                    <span className="text-[12px] font-medium flex-1 truncate" style={{ color: 'var(--text-2)' }}>
+                      {project.name}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Project Management accordion */}
         <div className="h-px my-2" style={{ background: 'var(--border)' }} />
 
@@ -136,7 +198,7 @@ export function Sidebar() {
           className="w-full flex items-center gap-[5px] px-2 py-[3px] pb-[5px] cursor-pointer"
         >
           <span
-            className="text-[10px] font-semibold uppercase tracking-[0.07em] flex-1 text-left"
+            className="text-[11px] font-semibold uppercase tracking-[0.07em] flex-1 text-left"
             style={{ color: isPMActive ? 'var(--accent)' : 'var(--text-3)' }}
           >
             Project Management
@@ -188,6 +250,15 @@ export function Sidebar() {
                 <line x1="8" y1="5" x2="8" y2="11" />
               </svg>
             </NavItem>
+            <NavItem href="/slack" label="Slack Q&A Linker" active={isActive('/slack')} sub>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M5.5 2a1.5 1.5 0 0 0 0 3H7V3.5A1.5 1.5 0 0 0 5.5 2z" />
+                <path d="M10.5 2a1.5 1.5 0 0 1 0 3H9V3.5A1.5 1.5 0 0 1 10.5 2z" />
+                <path d="M2 6.5h5v2H2zM9 6.5h5v2H9z" />
+                <path d="M5.5 9a1.5 1.5 0 0 0-1.5 1.5V12h3v-1.5A1.5 1.5 0 0 0 5.5 9z" />
+                <path d="M10.5 9a1.5 1.5 0 0 1 1.5 1.5V12H9v-1.5A1.5 1.5 0 0 1 10.5 9z" />
+              </svg>
+            </NavItem>
           </div>
         )}
 
@@ -200,7 +271,7 @@ export function Sidebar() {
           className="w-full flex items-center gap-[5px] px-2 py-[3px] pb-[5px] cursor-pointer"
         >
           <span
-            className="text-[10px] font-semibold uppercase tracking-[0.07em] flex-1 text-left"
+            className="text-[11px] font-semibold uppercase tracking-[0.07em] flex-1 text-left"
             style={{ color: isReleasesActive ? 'var(--accent)' : 'var(--text-3)' }}
           >
             Releases
@@ -227,6 +298,17 @@ export function Sidebar() {
 
         {isReleasesOpen && (
           <div className="flex flex-col gap-[1px]">
+            <NavItem
+              href="/releases/version-assignment"
+              label="Version Assignment"
+              active={isActive('/releases/version-assignment')}
+              sub
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                <path d="M5 8l2 2 4-4" />
+              </svg>
+            </NavItem>
             <NavItem
               href="/releases/notes"
               label="Release Note Creator"

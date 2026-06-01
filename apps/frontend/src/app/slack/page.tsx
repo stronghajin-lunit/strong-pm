@@ -120,10 +120,10 @@ export default function SlackPage() {
               <path d="M1 4h14M6 8h4" />
             </svg>
             <p className="text-[13px] font-medium mb-1" style={{ color: 'var(--text-3)' }}>
-              아직 보관된 항목이 없습니다
+              No archived items yet
             </p>
             <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
-              프로젝트 연결 후 "→ PRD Q&A" 버튼을 누르면 이곳에 보관됩니다.
+              After linking a project, click "→ PRD Q&A" to archive items here.
             </p>
           </div>
         )}

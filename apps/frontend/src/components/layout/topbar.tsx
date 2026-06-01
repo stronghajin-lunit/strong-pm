@@ -13,14 +13,14 @@ export function Topbar() {
       <h1 className="text-[14px] font-semibold flex-1">{topbarTitle}</h1>
 
       <div className="flex items-center gap-[2px]">
-        <IconButton aria-label="알림">
+        <IconButton aria-label="Notifications">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M8 2C5.8 2 4 3.8 4 6v4l-1.5 2h11L12 10V6c0-2.2-1.8-4-4-4Z" />
             <path d="M6.5 13.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5" />
           </svg>
         </IconButton>
 
-        <IconButton aria-label="설정">
+        <IconButton aria-label="Settings">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="2.5" />
             <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1 1M11.8 11.8l1 1M3.2 12.8l1-1M11.8 4.2l1-1" />

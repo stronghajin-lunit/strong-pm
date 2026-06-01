@@ -65,7 +65,7 @@ export function PRTable({ prs, projects }: PRTableProps) {
                     {pr.title}
                   </span>
                   <span
-                    className="block text-[10px] truncate max-w-[320px] mt-[1px]"
+                    className="block text-[11px] truncate max-w-[320px] mt-[1px]"
                     style={{ color: 'var(--text-3)' }}
                   >
                     {pr.description}
@@ -90,7 +90,7 @@ export function PRTable({ prs, projects }: PRTableProps) {
                 {/* Repo */}
                 <td className="px-3 py-[9px] align-middle">
                   <span
-                    className="text-[10px] font-mono"
+                    className="text-[11px] font-mono"
                     style={{ color: 'var(--text-3)' }}
                   >
                     {pr.repo}
@@ -99,7 +99,7 @@ export function PRTable({ prs, projects }: PRTableProps) {
 
                 {/* Date */}
                 <td className="px-3 py-[9px] align-middle">
-                  <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
+                  <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
                     {pr.date}
                   </span>
                 </td>
@@ -118,7 +118,7 @@ export function PRTable({ prs, projects }: PRTableProps) {
                         ? { border: '1px solid var(--teal)', background: 'var(--teal-light)', color: 'var(--teal)' }
                         : { border: '1px solid var(--border-md)', background: 'var(--surface-2)', color: 'var(--text-1)' }
                     }
-                    aria-label={`${pr.title} 프로젝트 연결`}
+                    aria-label={`Link ${pr.title} to a project`}
                   >
                     <option value="">— Select —</option>
                     {projects.map((project) => (

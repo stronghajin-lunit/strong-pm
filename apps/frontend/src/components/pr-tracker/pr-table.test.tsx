@@ -6,8 +6,8 @@ import type { PullRequest } from '@/types/pr'
 import type { Project } from '@/types/project'
 
 const MOCK_PROJECTS: Project[] = [
-  { id: '1', name: 'Payment Module Refactor', description: '', status: 'active', emoji: '💳', progress: 58, updatedAt: '2h ago' },
-  { id: '2', name: 'Auth System Redesign', description: '', status: 'planning', emoji: '🔐', progress: 12, updatedAt: '1d ago' },
+  { id: '1', name: 'Payment Module Refactor', description: '', status: 'active', epicLink: '', confluenceLink: '', relatedProducts: ['ODM'], updatedAt: '2h ago' },
+  { id: '2', name: 'Auth System Redesign', description: '', status: 'planning', epicLink: '', confluenceLink: '', relatedProducts: ['ODM'], updatedAt: '1d ago' },
 ]
 
 const MOCK_PRS: PullRequest[] = [
