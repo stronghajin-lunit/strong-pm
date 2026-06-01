@@ -101,7 +101,6 @@
 | GET | `/api/v1/jira-versions` | Jira fix version 목록(동기화) | 2026-04 |
 | POST | `/api/v1/release-notes/run` | 릴리즈노트 생성+발행 | 2026-05 |
 | GET | `/api/v1/release-notes` | 릴리즈노트 목록 | 2026-05 |
-| PATCH | `/api/v1/release-notes/{id}/reflection` | 반영(회고) 1회 등록 | 2026-05 |
 | POST | `/api/v1/deployments/run` | 티켓↔GitHub PR 배포 대조 | 2026-05 |
 | GET | `/api/v1/deployments` | 배포 스냅샷 목록 | 2026-05 |
 | GET | `/api/v1/deployments/{id}` | 배포 상세 | 2026-05 |

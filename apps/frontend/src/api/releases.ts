@@ -41,7 +41,6 @@ interface ReleaseNoteApiItem {
   completed_at: string | null
   status: 'running' | 'done' | 'error'
   confluence_url: string | null
-  reflection: string | null
 }
 
 function toReleaseNoteRecord(item: ReleaseNoteApiItem): ReleaseNoteRunRecord {
@@ -53,7 +52,6 @@ function toReleaseNoteRecord(item: ReleaseNoteApiItem): ReleaseNoteRunRecord {
     completedAt: item.completed_at ?? undefined,
     status: item.status,
     confluenceUrl: item.confluence_url,
-    reflection: item.reflection ?? undefined,
   }
 }
 
@@ -71,16 +69,6 @@ export async function runReleaseNote(
     body: JSON.stringify({ jira_version_id: jiraVersionId, confluence_page: confluencePage }),
   })
   return toReleaseNoteRecord(item)
-}
-
-export async function applyReflection(
-  id: string,
-  reflection: string,
-): Promise<{ id: string; reflection: string }> {
-  return apiFetch(`/api/v1/release-notes/${id}/reflection`, {
-    method: 'PATCH',
-    body: JSON.stringify({ reflection }),
-  })
 }
 
 // ─── Deployment Tracker ───────────────────────────────────────────────────────

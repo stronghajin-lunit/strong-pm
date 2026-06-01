@@ -43,7 +43,6 @@ class TestRunReleaseNote:
         assert data["confluence_location"]
         assert data["confluence_url"]
         assert data["id"].startswith("rn-")
-        assert data["reflection"] is None
 
     @pytest.mark.asyncio
     async def test_rejects_invalid_confluence_page(self, client: AsyncClient) -> None:
@@ -120,82 +119,3 @@ class TestListReleaseNotes:
         notes = response.json()["notes"]
         assert len(notes) == 1
         assert notes[0]["id"] == created["id"]
-
-
-class TestApplyReflection:
-    """PATCH /api/v1/release-notes/{rn_id}/reflection - Attach a reflection
-
-    Business rules:
-    1. Reflection can be set only once (second attempt: 409)
-    2. Unknown / malformed id: 404
-    """
-
-    @pytest.mark.asyncio
-    async def test_applies_reflection(self, client: AsyncClient) -> None:
-        """Attach a reflection to a note
-        Given: a generated release note with no reflection
-        When: PATCH .../reflection with a reflection body
-        Then: 200, reflection stored and echoed back
-        """
-        created = await _run_note(client)
-
-        response = await client.patch(
-            f"/api/v1/release-notes/{created['id']}/reflection",
-            json={"reflection": "Shipped to ODM customers"},
-        )
-
-        assert response.status_code == 200
-        body = response.json()
-        assert body["id"] == created["id"]
-        assert body["reflection"] == "Shipped to ODM customers"
-
-    @pytest.mark.asyncio
-    async def test_rejects_second_reflection(self, client: AsyncClient) -> None:
-        """Reflection is write-once
-        Given: a note that already has a reflection
-        When: PATCH .../reflection again
-        Then: 409 with code CONFLICT
-        """
-        created = await _run_note(client)
-        await client.patch(
-            f"/api/v1/release-notes/{created['id']}/reflection",
-            json={"reflection": "first"},
-        )
-
-        response = await client.patch(
-            f"/api/v1/release-notes/{created['id']}/reflection",
-            json={"reflection": "second"},
-        )
-
-        assert response.status_code == 409
-        assert response.json()["detail"]["code"] == "CONFLICT"
-
-    @pytest.mark.asyncio
-    async def test_rejects_unknown_id(self, client: AsyncClient) -> None:
-        """Unknown note id
-        Given: a release note id that does not exist
-        When: PATCH .../reflection
-        Then: 404 with code NOT_FOUND
-        """
-        response = await client.patch(
-            "/api/v1/release-notes/rn-999/reflection",
-            json={"reflection": "x"},
-        )
-
-        assert response.status_code == 404
-        assert response.json()["detail"]["code"] == "NOT_FOUND"
-
-    @pytest.mark.asyncio
-    async def test_rejects_malformed_id(self, client: AsyncClient) -> None:
-        """Malformed note id
-        Given: an id that is not in the 'rn-<int>' form
-        When: PATCH .../reflection
-        Then: 404 with code NOT_FOUND
-        """
-        response = await client.patch(
-            "/api/v1/release-notes/not-an-id/reflection",
-            json={"reflection": "x"},
-        )
-
-        assert response.status_code == 404
-        assert response.json()["detail"]["code"] == "NOT_FOUND"

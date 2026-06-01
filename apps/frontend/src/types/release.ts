@@ -22,7 +22,6 @@ export interface ReleaseNoteRunRecord {
   completedAt?: string
   status: ReleaseRunStatus
   confluenceUrl: string | null
-  reflection?: string
 }
 
 // ─── Deployment Tracker ───────────────────────────────────────────────────────

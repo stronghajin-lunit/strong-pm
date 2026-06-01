@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -46,15 +46,3 @@ async def add_tickets(
 async def list_all(db: AsyncSession) -> list[ReleaseNote]:
     result = await db.execute(select(ReleaseNote).order_by(ReleaseNote.id.desc()))
     return list(result.scalars().all())
-
-
-async def get_by_id(db: AsyncSession, note_id: int) -> ReleaseNote | None:
-    result = await db.execute(select(ReleaseNote).where(ReleaseNote.id == note_id))
-    return result.scalar_one_or_none()
-
-
-async def update_reflection(db: AsyncSession, note: ReleaseNote, reflection: str) -> ReleaseNote:
-    note.reflection = reflection
-    note.updated_at = datetime.now(timezone.utc)
-    await db.flush()
-    return note
