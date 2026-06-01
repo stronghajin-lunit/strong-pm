@@ -208,14 +208,23 @@ Output EXACTLY two blocks separated by the delimiter lines shown below. \
 No other text, no markdown fences.
 
 === SPRINT_SUMMARY ===
-<Sprint Summary table as Confluence storage-format XHTML, matching the reference table format.
-Columns: Initiative | Epic | Summary | Count | SP | % of Planned Capacity | Contributors
+<Sprint Summary section as Confluence storage-format XHTML.
+
+If Sprint Completion Rate is provided:
+  Add this line BEFORE the table:
+  <p><ac:structured-macro ac:name="status" ac:schema-version="1"><ac:parameter \
+ac:name="colour">Green</ac:parameter><ac:parameter ac:name="title">Sprint Completion \
+Rate</ac:parameter></ac:structured-macro> {rate}%</p>
+
+Then the table. Columns: Initiative | Epic | Summary | Story / Task Count | Story Points | \
+% of Planned Capacity | Main Contributors
 Rules:
-- One row per (Initiative, Epic) group.
+- One row per (Initiative, Epic) group. Leave Initiative cell blank if initiative is "(blank)".
 - Summary cell: <ul><li>one bullet per ticket</li></ul>. Apply: "page"→"UI", \
 "Develop"→"Build"/"Implement", "API endpoint"→"API".
 - "% of Planned Capacity" = (group SP / total SP) * 100 as "X%". Show "—" when SP is 0.
-- "Main Contributors" = comma-separated short names by SP descending.>
+- "Main Contributors" = comma-separated short names by SP descending.
+- Last row (bold, no Initiative/Epic): Total | {total count} | {total SP} | 100% | (empty)>
 
 === KEY_DELIVERABLES ===
 <Key Deliverables Completed section as Confluence storage-format XHTML.
@@ -229,14 +238,17 @@ async def generate_sprint_report(
     sprint_label: str,
     week_number: int,
     grouped_data: list[dict],
+    total_count: int,
     total_sp: float,
+    done_sp: float,
+    sp_goal: int | None,
     example_page_storage: str,
 ) -> str:
     """Generate Confluence sprint report as storage-format XML."""
     client = _get_client()
 
     rows_text = "\n".join(
-        f"Initiative: {row['initiative']}\n"
+        f"Initiative: {row['initiative'] or '(blank)'}\n"
         f"  Epic: {row['epic']}\n"
         f"  Tickets: {', '.join(row['summaries'])}\n"
         f"  Story count: {row['story_count']} | Task count: {row['task_count']}\n"
@@ -244,9 +256,19 @@ async def generate_sprint_report(
         f"  Contributors: {', '.join(row['contributors'])}"
         for row in grouped_data
     )
+
+    completion_info = ""
+    if sp_goal:
+        rate = round(done_sp / sp_goal * 100, 1)
+        completion_info = (
+            f"SP Goal: {sp_goal} | Done SP: {done_sp} | "
+            f"Sprint Completion Rate: {rate}%\n"
+        )
+
     user_content = (
         f"Sprint: {sprint_label} (Week {week_number})\n"
-        f"Total Story Points: {total_sp}\n\n"
+        f"{completion_info}"
+        f"Total Story Points: {total_sp} | Total Count: {total_count}\n\n"
         f"=== Sprint Data ===\n{rows_text}\n\n"
         f"=== Example Confluence Page (reference format) ===\n{example_page_storage[:8000]}"
     )

@@ -21,6 +21,7 @@ from app.utils.sprint_config import (
     clean_summary,
     extract_initiative,
     extract_sprint_number,
+    is_done,
     is_dropped,
     normalize_engineer,
     normalize_epic,
@@ -96,6 +97,7 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
     # ── 1. Fetch sprint issues ──────────────────────────────────────────────
     issues = await jira.fetch_sprint_issues(body.sprint_id)
     active_issues = [i for i in issues if not is_dropped(i.status)]
+    done_sp = sum((i.story_points or 0.0) for i in active_issues if is_done(i.status))
 
     # ── 2. Resolve initiatives (cache per epic key) ─────────────────────────
     epic_initiative_cache: dict[str, str] = {}
@@ -142,6 +144,7 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
             g["contributor_sp"][short] += sp
 
     total_sp = sum(g["story_points"] for g in groups.values())
+    total_count = sum(g["story_count"] + g["task_count"] for g in groups.values())
 
     grouped_data: list[dict] = []
     for (initiative, epic), g in groups.items():
@@ -173,7 +176,10 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
         sprint_label=body.sprint_label,
         week_number=week_number,
         grouped_data=grouped_data,
+        total_count=total_count,
         total_sp=total_sp,
+        done_sp=done_sp,
+        sp_goal=body.sp_goal,
         example_page_storage=example_storage,
     )
 

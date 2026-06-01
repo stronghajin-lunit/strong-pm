@@ -176,7 +176,10 @@ def stub_sprint_report(monkeypatch: pytest.MonkeyPatch) -> None:
         sprint_label: str,
         week_number: int,
         grouped_data: list[dict],
+        total_count: int,
         total_sp: float,
+        done_sp: float,
+        sp_goal: int | None,
         example_page_storage: str,
     ) -> str:
         return "<table><tbody><tr><td>Core Platform</td><td>TMA Module</td></tr></tbody></table>"
