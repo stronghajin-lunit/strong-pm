@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     # Jira Ticket Writer — project key used when creating issues (default: RAD).
     JIRA_TICKET_PROJECT_KEY: str = "RAD"
+    # Version Assignment — JQL project identifier for unversioned ticket search.
+    # Can be a project key (e.g. "RAD") or name (e.g. "[AIP] Onco Space").
+    JIRA_VERSION_ASSIGN_PROJECT: str = "RAD"
     # Board IDs per product for sprint lookup via Agile API.
     # Format: "ODM=123,Annotation Admin=456,Annotation Tool=789"
     JIRA_BOARD_IDS: str = ""

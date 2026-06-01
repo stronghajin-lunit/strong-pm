@@ -3,6 +3,7 @@ import re
 
 from fastapi import HTTPException
 
+from app.core.config import settings
 from app.integrations import jira
 from app.integrations.jira import JiraIntegrationError
 from app.schemas.version_assignment import (
@@ -15,7 +16,6 @@ from app.schemas.version_assignment import (
 )
 
 _VERSION_DATE_RE = re.compile(r"(\d{2})-(\d{2})-(\d{2})$")
-_VERSION_PROJECT = "RAD"
 _MAX_VERSIONS = 8
 
 
@@ -32,7 +32,7 @@ def _sort_key(v: VersionOption) -> str:
 
 async def list_versions() -> VersionOptionListResponse:
     """RAD project Fix Versions, sorted by releaseDate desc, max 8."""
-    raw = await jira.fetch_project_versions(_VERSION_PROJECT)
+    raw = await jira.fetch_project_versions(settings.JIRA_TICKET_PROJECT_KEY)
     options = [
         VersionOption(id=v.jira_id, name=v.label, release_date=v.release_date)
         for v in raw
@@ -47,7 +47,7 @@ async def list_unversioned_tickets(period: str) -> UnversionedTicketListResponse
         raise HTTPException(status_code=400, detail={"code": "INVALID_PERIOD"})
 
     raw = await jira.fetch_unversioned_tickets(
-        project_key=_VERSION_PROJECT,
+        project_key=settings.JIRA_VERSION_ASSIGN_PROJECT,
         period=period,
     )
     tickets = [
