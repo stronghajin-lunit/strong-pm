@@ -236,17 +236,18 @@ async def create_issue(
     issue_type: str,
     summary: str,
     description: str,
+    labels: list[str] | None = None,
 ) -> JiraIssueResult:
     """Create a Jira issue and return its key and browse URL."""
-    body: dict[str, Any] = {
-        "fields": {
-            "project": {"key": project_key},
-            "issuetype": {"name": issue_type},
-            "summary": summary,
-            "description": _to_adf_doc(description),
-        }
+    fields: dict[str, Any] = {
+        "project": {"key": project_key},
+        "issuetype": {"name": issue_type},
+        "summary": summary,
+        "description": _to_adf_doc(description),
     }
-    response = await _post("/rest/api/3/issue", body)
+    if labels:
+        fields["labels"] = labels
+    response = await _post("/rest/api/3/issue", {"fields": fields})
     data = _ensure_ok(response)
     key = str(data["key"])
     base = settings.JIRA_BASE_URL.rstrip("/")

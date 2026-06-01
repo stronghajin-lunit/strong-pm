@@ -38,7 +38,9 @@ class TestRunJiraTicket:
         assert data["status"] == "done"
         assert data["jira_url"] == "https://lunit.atlassian.net/browse/RAD-9999"
         assert data["id"].startswith("jt-")
-        assert data["summary"] != ""
+        # Summary must follow {Product} > {Area} > {action} format
+        assert data["summary"].startswith("ODM > ")
+        assert " > " in data["summary"][len("ODM > "):]
 
     @pytest.mark.asyncio
     async def test_rejects_invalid_product(self, client: AsyncClient) -> None:

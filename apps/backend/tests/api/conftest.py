@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.integrations import ai as ai_integration
 from app.integrations import confluence as confluence_integration
 from app.integrations import jira as jira_integration
-from app.integrations.ai import JiraTicketContent, ReleaseNoteContent
+from app.integrations.ai import JiraTicketAction, ReleaseNoteContent
 from app.integrations.confluence import ConfluencePublishResult
 from app.integrations.jira import JiraIssueResult, JiraSprintData, JiraTicketData, JiraVersionData
 
@@ -86,18 +86,11 @@ def stub_ai(monkeypatch: pytest.MonkeyPatch) -> None:
         lines = "\n".join(f"- {t.ticket_id}: {t.title}" for t in tickets)
         return ReleaseNoteContent(body=f"## {jira_version_label}\n\n### Changes\n\n{lines}\n")
 
-    async def _generate_jira_ticket(
-        product: str, issue_type: str, feature_description: str, definition_of_done: str
-    ) -> JiraTicketContent:
-        return JiraTicketContent(
-            summary=f"{product} > Add license field to block registration form",
-            description=(
-                "Background: ...\nScope:\n- Add field\nDefinition of Done:\n- [ ] Field visible"
-            ),
-        )
+    async def _generate_ticket_action(feature_description: str) -> JiraTicketAction:
+        return JiraTicketAction(action="Add License Field to Block Registration Form")
 
     monkeypatch.setattr(ai_integration, "generate_release_note", _generate_release_note)
-    monkeypatch.setattr(ai_integration, "generate_jira_ticket", _generate_jira_ticket)
+    monkeypatch.setattr(ai_integration, "generate_ticket_action", _generate_ticket_action)
 
 
 _STUB_SPRINTS: list[JiraSprintData] = [
@@ -111,7 +104,11 @@ _STUB_ISSUE = JiraIssueResult(key="RAD-9999", url="https://lunit.atlassian.net/b
 @pytest.fixture(autouse=True)
 def stub_jira_ticket_writer(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _create_issue(
-        project_key: str, issue_type: str, summary: str, description: str
+        project_key: str,
+        issue_type: str,
+        summary: str,
+        description: str,
+        labels: list[str] | None = None,
     ) -> JiraIssueResult:
         return _STUB_ISSUE
 

@@ -17,6 +17,7 @@ from app.schemas.jira_ticket import (
     JiraTicketRunResponse,
 )
 from app.utils import fmt_dt_required, make_jt_id
+from app.utils.ticket_config import detect_area, format_description, get_labels
 
 
 def _to_response(run: JiraTicketRun) -> JiraTicketRunResponse:
@@ -42,18 +43,31 @@ async def run(db: AsyncSession, body: JiraTicketRunRequest) -> JiraTicketRunResp
     if body.product not in board_ids:
         raise HTTPException(status_code=502, detail={"code": "JIRA_UPSTREAM_ERROR"})
 
-    ticket_content = await ai.generate_jira_ticket(
-        product=body.product,
-        issue_type=body.type,
+    # Detect area from feature description keywords
+    area = detect_area(body.feature_description)
+
+    # AI generates only the action phrase (verb + feature name)
+    ticket_action = await ai.generate_ticket_action(body.feature_description)
+
+    # Build summary: {Product} > {Area} > {action}
+    summary = f"{body.product} > {area} > {ticket_action.action}"
+
+    # Format description from template (no AI)
+    description = format_description(
         feature_description=body.feature_description,
         definition_of_done=body.definition_of_done,
+        issue_type=body.type,
     )
+
+    # Determine labels from config mapping + special keywords
+    labels = get_labels(body.product, area, body.feature_description)
 
     issue = await jira.create_issue(
         project_key=settings.JIRA_TICKET_PROJECT_KEY,
         issue_type=body.type,
-        summary=ticket_content.summary,
-        description=ticket_content.description,
+        summary=summary,
+        description=description,
+        labels=labels,
     )
 
     await jira.add_issue_to_sprint(sprint_id=body.sprint_id, issue_key=issue.key)
@@ -64,7 +78,7 @@ async def run(db: AsyncSession, body: JiraTicketRunRequest) -> JiraTicketRunResp
         product=body.product,
         sprint=body.sprint,
         type=body.type,
-        summary=ticket_content.summary,
+        summary=summary,
         status="done",
         jira_url=issue.url,
         requested_at=now,

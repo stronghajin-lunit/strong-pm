@@ -40,9 +40,8 @@ class ReleaseNoteContent:
 
 
 @dataclass
-class JiraTicketContent:
-    summary: str
-    description: str  # plain text; callers wrap into ADF
+class JiraTicketAction:
+    action: str  # verb + feature name, e.g. "Build TMA Registration Page"
 
 
 class AIIntegrationError(Exception):
@@ -111,66 +110,46 @@ async def generate_release_note(
     return ReleaseNoteContent(body=body)
 
 
-_JIRA_TICKET_SYSTEM = (
-    "You are a senior product manager writing Jira issue content.\n"
-    "You receive a Feature Description and a Definition of Done written by a developer.\n"
+_JIRA_TICKET_SUMMARY_SYSTEM = (
+    "Generate a concise action phrase for a Jira issue summary.\n"
     "\n"
-    "Output exactly two parts separated by a blank line:\n"
-    "LINE 1: A concise one-line issue summary (max 120 chars). No prefix, no label.\n"
-    "LINE 3+: A plain-text description with exactly two sections:\n"
-    "  Description:\n"
-    "  <rewrite the Feature Description as clear, engineer-facing prose. "
-    "Do NOT add information not present in the input.>\n"
+    "Rules:\n"
+    "- Start with one verb: Build Create Implement Add Update Fix Remove Migrate Define\n"
+    "- Follow with the concise feature name as a noun phrase (title case)\n"
+    "- Max 80 characters total\n"
+    "- No product name, no area prefix, no colon\n"
+    "- Return ONLY the action phrase. Nothing else.\n"
     "\n"
-    "  Definition of Done:\n"
-    "  <rewrite each DoD item as a checkbox bullet: '- [ ] ...'.\n"
-    "  Use only the items from the input. Do NOT invent new items.>\n"
-    "\n"
-    "CRITICAL rules:\n"
-    "- Never fabricate details not present in the input.\n"
-    "- If the input is vague, keep the output equally vague — do not fill gaps.\n"
-    "- No Markdown headers (##), no fences, no extra sections."
+    "Examples:\n"
+    "Input: TMA registration Page UI\n"
+    "Output: Build TMA Registration Page\n"
+    "Input: Add license field to block registration form\n"
+    "Output: Add License Field to Block Registration Form"
 )
 
 
-async def generate_jira_ticket(
-    product: str,
-    issue_type: str,
-    feature_description: str,
-    definition_of_done: str,
-) -> JiraTicketContent:
-    """Generate a Jira issue summary and description via Claude."""
+async def generate_ticket_action(feature_description: str) -> JiraTicketAction:
+    """Generate a verb+feature_name action phrase for the Jira summary."""
     client = _get_client()
-
-    user_content = (
-        f"Product: {product}\n"
-        f"Type: {issue_type}\n"
-        f"Feature Description:\n{feature_description}\n\n"
-        f"Definition of Done:\n{definition_of_done}\n"
-    )
 
     try:
         response = await client.messages.create(
             model=settings.AI_MODEL,
-            max_tokens=1024,
+            max_tokens=64,
             thinking={"type": "disabled"},
             system=[
                 {
                     "type": "text",
-                    "text": _JIRA_TICKET_SYSTEM,
+                    "text": _JIRA_TICKET_SUMMARY_SYSTEM,
                     "cache_control": {"type": "ephemeral"},
                 }
             ],
-            messages=[{"role": "user", "content": user_content}],
+            messages=[{"role": "user", "content": feature_description.strip()}],
         )
     except anthropic.AnthropicError as exc:
         raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
 
-    raw = "".join(block.text for block in response.content if block.type == "text").strip()
-    if not raw:
-        raise AIIntegrationError("Anthropic returned empty ticket content")
-
-    lines = raw.splitlines()
-    summary = lines[0].strip()
-    description = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
-    return JiraTicketContent(summary=summary, description=description)
+    action = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not action:
+        raise AIIntegrationError("Anthropic returned empty action phrase")
+    return JiraTicketAction(action=action)
