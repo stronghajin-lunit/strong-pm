@@ -47,7 +47,7 @@ async def list_unversioned_tickets(period: str) -> UnversionedTicketListResponse
         raise HTTPException(status_code=400, detail={"code": "INVALID_PERIOD"})
 
     raw = await jira.fetch_unversioned_tickets(
-        project_key=settings.JIRA_VERSION_ASSIGN_PROJECT,
+        project_key=settings.JIRA_TICKET_PROJECT_KEY,
         period=period,
     )
     tickets = [
