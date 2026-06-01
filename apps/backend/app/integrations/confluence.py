@@ -199,16 +199,28 @@ _ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.DOTALL | re.IGNORECASE)
 
 
 def _fill_total_row_values(total_row: str, total_count: int, total_sp: float) -> str:
-    """Replace the first two numeric <strong> values in the Total row."""
+    """Fill count and SP in the Total row.
+
+    Matches <strong> tags whose content is numeric or empty
+    (skips "Total", "100%", and other non-numeric text).
+    """
     sp_str = str(int(total_sp)) if total_sp == int(total_sp) else f"{total_sp:.1f}"
     replacements = iter([str(total_count), sp_str])
 
     def _sub(m: re.Match) -> str:
-        val = next(replacements, None)
-        return f"{m.group(1)}{val}{m.group(2)}" if val is not None else m.group(0)
+        content = m.group(2).strip()
+        # Replace only if content is empty or purely numeric (not "Total", "100%", etc.)
+        if re.match(r"^\d*\.?\d*$", content):
+            val = next(replacements, None)
+            if val is not None:
+                return f"{m.group(1)}{val}{m.group(3)}"
+        return m.group(0)
 
     return re.sub(
-        r"(<strong[^>]*>)\s*\d+\.?\d*\s*(</strong>)", _sub, total_row, flags=re.IGNORECASE
+        r"(<strong[^>]*>)(.*?)(</strong>)",
+        _sub,
+        total_row,
+        flags=re.IGNORECASE | re.DOTALL,
     )
 
 

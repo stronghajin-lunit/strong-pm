@@ -208,18 +208,14 @@ Output EXACTLY two blocks separated by the delimiter lines shown below. \
 No other text, no markdown fences.
 
 === SPRINT_SUMMARY ===
-<Generate ONLY the data <tr>...</tr> rows for the Sprint Summary table.
-Do NOT output: table tags, colgroup, thead, tbody, header rows, or a Total row.
-The table structure and Total row already exist in the page template — do not touch them.
+<Generate ONLY the data <tr>...</tr> rows. No table tags, no header row, no Total row.
 
 One <tr> per (Initiative, Epic) group. Rules:
 - Initiative cell: leave empty if initiative is "(blank)".
 - Summary cell: <ul><li>one bullet per ticket</li></ul>. \
 Apply: "page"→"UI", "Develop"→"Build"/"Implement", "API endpoint"→"API".
-- "% of Planned Capacity" = (group SP / total SP) * 100 as "X%". Show "—" when SP is 0.
-- "Main Contributors" = comma-separated short names sorted by SP descending.
-- Follow the column order: Initiative | Epic | Summary | Story/Task Count | \
-Story Points | % of Planned Capacity | Main Contributors.>
+- "% of Planned Capacity" = (group SP / total SP * 100)%. Show "—" when SP is 0.
+- "Main Contributors" = comma-separated names sorted by SP descending.>
 
 === KEY_DELIVERABLES ===
 <Key Deliverables Completed section as Confluence storage-format XHTML.
