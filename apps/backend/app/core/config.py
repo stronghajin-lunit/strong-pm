@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # AI (Anthropic Claude) — release-note generation.
     ANTHROPIC_API_KEY: str = ""
     AI_MODEL: str = "claude-opus-4-8"
+    # Optional Anthropic-compatible gateway base URL; empty = public Anthropic API.
+    ANTHROPIC_BASE_URL: str = ""
 
     @property
     def allowed_origins_list(self) -> list[str]:

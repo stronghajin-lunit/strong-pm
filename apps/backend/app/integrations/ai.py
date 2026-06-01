@@ -47,7 +47,11 @@ def _get_client() -> anthropic.AsyncAnthropic:
     global _client
     _require_config()
     if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        base_url = settings.ANTHROPIC_BASE_URL.strip() or None
+        _client = anthropic.AsyncAnthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+            base_url=base_url,
+        )
     return _client
 
 
