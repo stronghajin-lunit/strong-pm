@@ -5,6 +5,7 @@ _VALID_RUN_PAYLOAD = {
     "sprint_id": 324,
     "sprint_number": 80,
     "sprint_label": "Onco Sprint 80",
+    "confluence_page_url": "https://lunit.atlassian.net/wiki/spaces/AIP/pages/99999",
 }
 
 

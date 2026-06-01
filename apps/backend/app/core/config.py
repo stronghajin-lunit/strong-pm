@@ -41,8 +41,6 @@ class Settings(BaseSettings):
 
     # Sprint Report Creator — Onco board ID for sprint list + issue fetch.
     JIRA_SPRINT_BOARD_ID: int = 0
-    # Confluence parent page where sprint reports are published.
-    CONFLUENCE_SPRINT_PARENT_ID: str = ""
     # Confluence page used as few-shot example for AI generation.
     CONFLUENCE_SPRINT_EXAMPLE_PAGE_ID: str = "5400365750"
 

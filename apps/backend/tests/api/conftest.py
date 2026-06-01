@@ -181,12 +181,10 @@ def stub_sprint_report(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> str:
         return "<table><tbody><tr><td>Core Platform</td><td>TMA Module</td></tr></tbody></table>"
 
-    async def _publish_sprint_report(
-        title: str, content_storage: str, parent_id: str
-    ) -> object:
+    async def _update_sprint_report(page_id: str, content_storage: str) -> object:
         from app.integrations.confluence import ConfluencePublishResult
         return ConfluencePublishResult(
-            confluence_location=f"AIP / {title}",
+            confluence_location="AIP / Week19 Sprint 80 Report",
             confluence_url="https://example.atlassian.net/wiki/spaces/AIP/pages/99999",
         )
 
@@ -196,6 +194,5 @@ def stub_sprint_report(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(confluence_integration, "fetch_page_storage", _fetch_page_storage)
     monkeypatch.setattr(ai_integration, "generate_sprint_report", _generate_sprint_report)
-    monkeypatch.setattr(confluence_integration, "publish_sprint_report", _publish_sprint_report)
+    monkeypatch.setattr(confluence_integration, "update_sprint_report", _update_sprint_report)
     monkeypatch.setattr(settings, "JIRA_SPRINT_BOARD_ID", 324)
-    monkeypatch.setattr(settings, "CONFLUENCE_SPRINT_PARENT_ID", "12345")

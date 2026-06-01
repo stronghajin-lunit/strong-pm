@@ -68,8 +68,10 @@ async def list_sprints() -> SprintOptionListResponse:
 
 
 async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportResponse:
-    if not settings.CONFLUENCE_SPRINT_PARENT_ID.strip():
-        raise HTTPException(status_code=502, detail={"code": "CONFLUENCE_UPSTREAM_ERROR"})
+    try:
+        page_id = confluence.extract_page_id_from_url(body.confluence_page_url)
+    except Exception:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_CONFLUENCE_URL"})
 
     week_number = sprint_to_week(body.sprint_number)
 
@@ -157,12 +159,10 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
         example_page_storage=example_storage,
     )
 
-    # ── 6. Publish to Confluence ────────────────────────────────────────────
-    page_title = f"Week{week_number} Sprint {body.sprint_number} Report"
-    result = await confluence.publish_sprint_report(
-        title=page_title,
+    # ── 6. Update existing Confluence page ─────────────────────────────────
+    result = await confluence.update_sprint_report(
+        page_id=page_id,
         content_storage=content_storage,
-        parent_id=settings.CONFLUENCE_SPRINT_PARENT_ID,
     )
 
     # ── 7. Save run record ──────────────────────────────────────────────────

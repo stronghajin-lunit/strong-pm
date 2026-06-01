@@ -193,6 +193,24 @@ async def _resolve_space_id(space_key: str) -> str:
     return str(results[0]["id"])
 
 
+def extract_page_id_from_url(url: str) -> str:
+    """Extract Confluence page ID from a URL.
+
+    Supports:
+    - /wiki/spaces/.../pages/1234567890
+    - /pages/1234567890
+    - bare numeric ID
+    """
+    import re as _re
+    m = _re.search(r"/pages/(\d+)", url)
+    if m:
+        return m.group(1)
+    m = _re.search(r"^\d+$", url.strip())
+    if m:
+        return url.strip()
+    raise ConfluenceIntegrationError(f"Could not extract page ID from URL: {url}")
+
+
 async def fetch_page_storage(page_id: str) -> str:
     """Return Confluence page body in storage format (for few-shot reference)."""
     try:
@@ -206,31 +224,42 @@ async def fetch_page_storage(page_id: str) -> str:
     return str((data.get("body") or {}).get("storage", {}).get("value", ""))
 
 
-async def publish_sprint_report(
-    title: str,
+async def update_sprint_report(
+    page_id: str,
     content_storage: str,
-    parent_id: str,
 ) -> ConfluencePublishResult:
-    """Create a new Confluence page with pre-built storage-format content."""
+    """Update an existing Confluence page with sprint report content.
+
+    Fetches the current page version, increments it, and PUTs the new content.
+    """
     _require_config()
-    space_id = await _resolve_space_id(settings.CONFLUENCE_SPACE_KEY)
+
+    # Fetch current page metadata (title + version)
+    try:
+        get_resp = await _get_client().get(f"/api/v2/pages/{page_id}")
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    page_data = _ensure_ok(get_resp)
+
+    current_version: int = (page_data.get("version") or {}).get("number", 1)
+    title: str = str(page_data.get("title", "Sprint Report"))
 
     payload = {
-        "spaceId": space_id,
+        "id": page_id,
         "status": "current",
         "title": title,
-        "parentId": parent_id,
+        "version": {"number": current_version + 1},
         "body": {"representation": "storage", "value": content_storage},
     }
     try:
-        response = await _get_client().post("/api/v2/pages", json=payload)
+        put_resp = await _get_client().put(f"/api/v2/pages/{page_id}", json=payload)
     except httpx.HTTPError as exc:
         raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
-    data = _ensure_ok(response)
+    data = _ensure_ok(put_resp)
 
     webui = str(data.get("_links", {}).get("webui", ""))
     site = settings.JIRA_BASE_URL.rstrip("/")
-    confluence_url = f"{site}/wiki{webui}" if webui else ""
+    confluence_url = f"{site}/wiki{webui}" if webui else f"{site}/wiki/pages/{page_id}"
     confluence_location = f"{settings.CONFLUENCE_SPACE_KEY} / {title}"
     return ConfluencePublishResult(
         confluence_location=confluence_location,

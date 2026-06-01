@@ -5,6 +5,7 @@ class SprintReportRunRequest(BaseModel):
     sprint_id: int
     sprint_number: int
     sprint_label: str
+    confluence_page_url: str  # URL of the Confluence page to update
 
 
 class SprintReportResponse(BaseModel):
