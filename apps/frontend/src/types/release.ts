@@ -19,8 +19,10 @@ export interface ReleaseNoteRunRecord {
   jiraVersion: string
   confluenceLocation: string
   requestedAt: string
+  completedAt?: string
   status: ReleaseRunStatus
   confluenceUrl: string | null
+  reflection?: string
 }
 
 // ─── Deployment Tracker ───────────────────────────────────────────────────────
