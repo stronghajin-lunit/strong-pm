@@ -80,8 +80,9 @@
 | 서비스 | 상태 | 필요 환경변수 |
 |--------|------|----------------|
 | **Jira** (fix version/티켓 조회) | ✅ 실연동 (Atlassian Cloud REST v3) | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEYS` |
+| **Jira** (이슈 생성 + 스프린트 할당) | ✅ 실연동 (Atlassian Cloud REST v3 + Agile v1) | 위 Jira 자격증명 공유, `JIRA_TICKET_PROJECT_KEY`(기본 `RAD`), `JIRA_BOARD_IDS` |
 | **Confluence** (릴리즈노트 발행) | ✅ 실연동 (Atlassian Cloud REST v2) | (인증은 Jira와 공유) `CONFLUENCE_SPACE_KEY`, `CONFLUENCE_ODM_PARENT_ID`, `CONFLUENCE_ANNOTATION_PARENT_ID` |
-| **AI** (릴리즈노트 생성) | ✅ 실연동 (Anthropic Claude) | `ANTHROPIC_API_KEY`, `AI_MODEL`(기본 `claude-opus-4-8`) |
+| **AI** (릴리즈노트/Jira 티켓 생성) | ✅ 실연동 (Anthropic Claude) | `ANTHROPIC_API_KEY`, `AI_MODEL`(기본 `claude-opus-4-8`) |
 | GitHub (배포 PR 대조) | 🟡 mock | - |
 
 - `JIRA_PROJECT_KEYS`: 쉼표 구분 (예: `RAD,ODM`)
@@ -104,3 +105,6 @@
 | POST | `/api/v1/deployments/run` | 티켓↔GitHub PR 배포 대조 | 2026-05 |
 | GET | `/api/v1/deployments` | 배포 스냅샷 목록 | 2026-05 |
 | GET | `/api/v1/deployments/{id}` | 배포 상세 | 2026-05 |
+| GET | `/api/v1/jira-tickets/sprints` | 제품별 스프린트 목록 (Agile API 실연동) | 2026-06 |
+| POST | `/api/v1/jira-tickets/run` | Jira 티켓 AI 생성 + 스프린트 할당 | 2026-06 |
+| GET | `/api/v1/jira-tickets` | 티켓 생성 이력 목록 | 2026-06 |

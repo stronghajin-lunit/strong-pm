@@ -8,18 +8,19 @@ This conftest applies only to tests under tests/api/, so the integration tests
 still call the real functions.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from app.core.config import settings
 from app.integrations import ai as ai_integration
 from app.integrations import confluence as confluence_integration
 from app.integrations import jira as jira_integration
-from app.integrations.ai import ReleaseNoteContent
+from app.integrations.ai import JiraTicketContent, ReleaseNoteContent
 from app.integrations.confluence import ConfluencePublishResult
-from app.integrations.jira import JiraTicketData, JiraVersionData
+from app.integrations.jira import JiraIssueResult, JiraSprintData, JiraTicketData, JiraVersionData
 
-_SYNCED_AT = datetime(2026, 4, 1, tzinfo=timezone.utc)
+_SYNCED_AT = datetime(2026, 4, 1, tzinfo=UTC)
 
 _STUB_VERSIONS: list[JiraVersionData] = [
     JiraVersionData("aicp-0401", "AICP Monthly 26-04-01", _SYNCED_AT),
@@ -85,4 +86,43 @@ def stub_ai(monkeypatch: pytest.MonkeyPatch) -> None:
         lines = "\n".join(f"- {t.ticket_id}: {t.title}" for t in tickets)
         return ReleaseNoteContent(body=f"## {jira_version_label}\n\n### Changes\n\n{lines}\n")
 
+    async def _generate_jira_ticket(
+        product: str, issue_type: str, feature_description: str, definition_of_done: str
+    ) -> JiraTicketContent:
+        return JiraTicketContent(
+            summary=f"{product} > Add license field to block registration form",
+            description=(
+                "Background: ...\nScope:\n- Add field\nDefinition of Done:\n- [ ] Field visible"
+            ),
+        )
+
     monkeypatch.setattr(ai_integration, "generate_release_note", _generate_release_note)
+    monkeypatch.setattr(ai_integration, "generate_jira_ticket", _generate_jira_ticket)
+
+
+_STUB_SPRINTS: list[JiraSprintData] = [
+    JiraSprintData(sprint_id=101, label="Onco Sprint 79", state="active"),
+    JiraSprintData(sprint_id=100, label="Onco Sprint 78", state="future"),
+]
+
+_STUB_ISSUE = JiraIssueResult(key="RAD-9999", url="https://lunit.atlassian.net/browse/RAD-9999")
+
+
+@pytest.fixture(autouse=True)
+def stub_jira_ticket_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _create_issue(
+        project_key: str, issue_type: str, summary: str, description: str
+    ) -> JiraIssueResult:
+        return _STUB_ISSUE
+
+    async def _fetch_sprints(board_id: int) -> list[JiraSprintData]:
+        return list(_STUB_SPRINTS)
+
+    async def _add_issue_to_sprint(sprint_id: int, issue_key: str) -> None:
+        return None
+
+    monkeypatch.setattr(jira_integration, "create_issue", _create_issue)
+    monkeypatch.setattr(jira_integration, "fetch_sprints", _fetch_sprints)
+    monkeypatch.setattr(jira_integration, "add_issue_to_sprint", _add_issue_to_sprint)
+    # Provide a board ID for "ODM" so the service doesn't 502
+    monkeypatch.setattr(settings, "JIRA_BOARD_IDS", "ODM=42,Annotation Admin=43,Annotation Tool=44")

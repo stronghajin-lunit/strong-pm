@@ -1,8 +1,9 @@
-"""Anthropic Claude integration for release-note generation.
+"""Anthropic Claude integration for AI-generated content.
 
-Real implementation (no mock fallback): requires ANTHROPIC_API_KEY. Generates a
-Markdown release note from a Jira version label and its tickets. The function
-contract (ReleaseNoteContent + signature) is kept stable for the service layer.
+Real implementation (no mock fallback): requires ANTHROPIC_API_KEY.
+- generate_release_note: Markdown release note from a Jira version + tickets.
+- generate_jira_ticket: summary + ADF description for a Jira issue.
+Function contracts (dataclasses + signatures) are kept stable for the service layer.
 """
 
 from dataclasses import dataclass
@@ -36,6 +37,12 @@ _SYSTEM_PROMPT = (
 @dataclass
 class ReleaseNoteContent:
     body: str
+
+
+@dataclass
+class JiraTicketContent:
+    summary: str
+    description: str  # plain text; callers wrap into ADF
 
 
 class AIIntegrationError(Exception):
@@ -102,3 +109,61 @@ async def generate_release_note(
     if not body.strip():
         raise AIIntegrationError("Anthropic returned an empty release note")
     return ReleaseNoteContent(body=body)
+
+
+_JIRA_TICKET_SYSTEM = (
+    "You are a senior product manager writing Jira issue content from a feature description "
+    "and a Definition of Done.\n"
+    "\n"
+    "Output exactly two sections separated by a blank line:\n"
+    "LINE 1: A concise one-line issue summary (max 120 chars). No prefix, no label.\n"
+    "LINE 3+: A plain-text description (no Markdown headers or fences) with these parts:\n"
+    "  Background: one sentence explaining why this work is needed.\n"
+    "  Scope: bullet points listing what must be built or changed.\n"
+    "  Definition of Done: bullet points, each starting with '- [ ]'.\n"
+    "\n"
+    "Rules: write for engineers; be specific; avoid vague words like 'improve' or 'enhance'."
+)
+
+
+async def generate_jira_ticket(
+    product: str,
+    issue_type: str,
+    feature_description: str,
+    definition_of_done: str,
+) -> JiraTicketContent:
+    """Generate a Jira issue summary and description via Claude."""
+    client = _get_client()
+
+    user_content = (
+        f"Product: {product}\n"
+        f"Type: {issue_type}\n"
+        f"Feature Description:\n{feature_description}\n\n"
+        f"Definition of Done:\n{definition_of_done}\n"
+    )
+
+    try:
+        response = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=1024,
+            thinking={"type": "disabled"},
+            system=[
+                {
+                    "type": "text",
+                    "text": _JIRA_TICKET_SYSTEM,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    raw = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not raw:
+        raise AIIntegrationError("Anthropic returned empty ticket content")
+
+    lines = raw.splitlines()
+    summary = lines[0].strip()
+    description = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+    return JiraTicketContent(summary=summary, description=description)

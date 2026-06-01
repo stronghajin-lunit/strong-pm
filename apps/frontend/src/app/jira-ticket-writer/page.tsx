@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { fetchJiraTicketRuns } from '@/api/jira-tickets'
 import { JiraTicketForm } from '@/components/jira-ticket/jira-ticket-form'
 import { useUIStore } from '@/stores/ui-store'
-import { MOCK_JIRA_TICKET_HISTORY } from '@/mocks/jira-ticket'
 import type { JiraTicketRunRecord, JiraTicketRunStatus, JiraTicketType } from '@/types/jira-ticket'
 
 const STATUS_CONFIG: Record<JiraTicketRunStatus, { label: string; bg: string; color: string }> = {
@@ -23,10 +23,11 @@ export default function JiraTicketWriterPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const view = searchParams.get('view') === 'create' ? 'create' : 'list'
-  const [history, setHistory] = useState<JiraTicketRunRecord[]>(MOCK_JIRA_TICKET_HISTORY)
+  const [history, setHistory] = useState<JiraTicketRunRecord[]>([])
 
   useEffect(() => {
     setTopbarTitle('Jira Ticket Writer')
+    void fetchJiraTicketRuns().then(setHistory)
   }, [setTopbarTitle])
 
   const handleRunComplete = (record: JiraTicketRunRecord) => {
@@ -92,7 +93,13 @@ export default function JiraTicketWriterPage() {
                 <th
                   key={col}
                   className="text-left px-[14px] py-2"
-                  style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: 'var(--text-3)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
                 >
                   {col}
                 </th>
@@ -104,12 +111,23 @@ export default function JiraTicketWriterPage() {
               <tr>
                 <td colSpan={6}>
                   <div className="py-10 flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" width="28" height="28" className="opacity-30" style={{ color: 'var(--text-3)' }}>
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      width="28"
+                      height="28"
+                      className="opacity-30"
+                      style={{ color: 'var(--text-3)' }}
+                    >
                       <rect x="2" y="5" width="12" height="9" rx="1" />
                       <path d="M2 9h12" />
                       <path d="M5 5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V5" />
                     </svg>
-                    <p className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>No execution history yet</p>
+                    <p className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>
+                      No execution history yet
+                    </p>
                     <button
                       type="button"
                       onClick={() => router.push('?view=create')}

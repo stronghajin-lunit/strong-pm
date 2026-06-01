@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { fetchJiraSprints, runJiraTicket } from '@/api/jira-tickets'
+import type { JiraSprintOption } from '@/api/jira-tickets'
 import type { JiraProduct, JiraTicketRunRecord, JiraTicketType } from '@/types/jira-ticket'
-import { MOCK_JIRA_SPRINTS } from '@/mocks/jira-sprints'
 
 interface JiraTicketFormProps {
   onRunComplete?: (record: JiraTicketRunRecord) => void
@@ -16,53 +17,53 @@ const TYPE_CONFIG: Record<JiraTicketType, { bg: string; color: string }> = {
 const PRODUCTS: JiraProduct[] = ['ODM', 'Annotation Admin', 'Annotation Tool']
 
 export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
-  const [product, setProduct]     = useState<JiraProduct | ''>('')
-  const [feature, setFeature]     = useState('')
-  const [dod, setDod]             = useState('')
-  const [sprint, setSprint]       = useState('')
-  const [type, setType]           = useState<JiraTicketType>('Task')
-  const [isRunning, setIsRunning] = useState(false)
+  const [product, setProduct]             = useState<JiraProduct | ''>('')
+  const [feature, setFeature]             = useState('')
+  const [dod, setDod]                     = useState('')
+  const [selectedSprint, setSelectedSprint] = useState<JiraSprintOption | null>(null)
+  const [type, setType]                   = useState<JiraTicketType>('Task')
+  const [isRunning, setIsRunning]         = useState(false)
+  const [error, setError]                 = useState<string | null>(null)
+  const [sprintOptions, setSprintOptions] = useState<JiraSprintOption[]>([])
+  const [sprintsLoading, setSprintsLoading] = useState(false)
 
-  const sprintOptions = product !== '' ? MOCK_JIRA_SPRINTS[product] : []
-
-  const handleProductChange = (newProduct: JiraProduct | '') => {
-    setProduct(newProduct)
-    setSprint('')  // reset sprint when product changes
-  }
-
-  const canRun = product !== '' && feature.trim() !== '' && dod.trim() !== '' && sprint !== ''
-
-  const handleRun = () => {
-    if (!canRun || !product) return
-
-    const featureFirstLine = feature.trim().split('\n')[0].slice(0, 60)
-    const summary = `${product} > ... > ${featureFirstLine}`
-
-    const selectedSprint = sprintOptions.find((s) => s.id === sprint)
-    const sprintLabel = selectedSprint?.label ?? sprint
-
-    const newRecord: JiraTicketRunRecord = {
-      id: `jt-${Date.now()}`,
-      summary,
-      product,
-      sprint: sprintLabel,
-      type,
-      requestedAt: nowStr(),
-      status: 'running',
-      jiraUrl: null,
+  useEffect(() => {
+    if (!product) {
+      setSprintOptions([])
+      setSelectedSprint(null)
+      return
     }
+    setSprintsLoading(true)
+    setSelectedSprint(null)
+    fetchJiraSprints(product)
+      .then(setSprintOptions)
+      .catch(() => setSprintOptions([]))
+      .finally(() => setSprintsLoading(false))
+  }, [product])
 
+  const canRun =
+    product !== '' && feature.trim() !== '' && dod.trim() !== '' && selectedSprint !== null
+
+  const handleRun = async () => {
+    if (!canRun || !product || !selectedSprint) return
     setIsRunning(true)
-
-    setTimeout(() => {
-      const completedRecord: JiraTicketRunRecord = {
-        ...newRecord,
-        status: 'done',
-        jiraUrl: 'https://lunit.atlassian.net/browse/RAD-0000',
-      }
+    setError(null)
+    try {
+      const record = await runJiraTicket({
+        product,
+        sprint_id: selectedSprint.sprintId,
+        sprint: selectedSprint.label,
+        type,
+        feature_description: feature,
+        definition_of_done: dod,
+      })
+      onRunComplete?.(record)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      setError(msg)
+    } finally {
       setIsRunning(false)
-      onRunComplete?.(completedRecord)
-    }, 2500)
+    }
   }
 
   return (
@@ -87,7 +88,7 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
                 <select
                   data-testid="product-select"
                   value={product}
-                  onChange={(e) => handleProductChange(e.target.value as JiraProduct | '')}
+                  onChange={(e) => setProduct(e.target.value as JiraProduct | '')}
                   className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
                   style={{
                     background: 'var(--surface-2)',
@@ -104,7 +105,10 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
             </div>
 
             <div style={{ width: 160 }}>
-              <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
+              <label
+                className="block text-[11px] font-semibold mb-[5px]"
+                style={{ color: 'var(--text-2)' }}
+              >
                 Type{' '}
                 <span
                   className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
@@ -123,8 +127,16 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
                     className="flex-1 py-2 rounded-[6px] text-[13px] font-medium border transition-all"
                     style={
                       type === t
-                        ? { background: TYPE_CONFIG[t].bg, color: TYPE_CONFIG[t].color, borderColor: 'transparent' }
-                        : { background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border-md)' }
+                        ? {
+                            background: TYPE_CONFIG[t].bg,
+                            color: TYPE_CONFIG[t].color,
+                            borderColor: 'transparent',
+                          }
+                        : {
+                            background: 'var(--surface-2)',
+                            color: 'var(--text-2)',
+                            border: '1px solid var(--border-md)',
+                          }
                     }
                   >
                     {t}
@@ -133,23 +145,26 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
               </div>
             </div>
 
-            <div style={{ width: 180 }}>
+            <div style={{ width: 220 }}>
               <Field label="Sprint" required>
                 <select
                   data-testid="sprint-select"
-                  value={sprint}
-                  onChange={(e) => setSprint(e.target.value)}
-                  disabled={product === ''}
+                  value={selectedSprint?.sprintId ?? ''}
+                  onChange={(e) => {
+                    const found = sprintOptions.find((s) => s.sprintId === Number(e.target.value))
+                    setSelectedSprint(found ?? null)
+                  }}
+                  disabled={product === '' || sprintsLoading}
                   className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none disabled:opacity-50"
                   style={{
                     background: 'var(--surface-2)',
                     border: '1px solid var(--border-md)',
-                    color: sprint === '' ? 'var(--text-3)' : 'var(--text-1)',
+                    color: !selectedSprint ? 'var(--text-3)' : 'var(--text-1)',
                   }}
                 >
-                  <option value="">— Select sprint —</option>
+                  <option value="">{sprintsLoading ? 'Loading…' : '— Select sprint —'}</option>
                   {sprintOptions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.label}</option>
+                    <option key={s.sprintId} value={s.sprintId}>{s.label}</option>
                   ))}
                 </select>
               </Field>
@@ -157,12 +172,16 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
           </div>
 
           {/* Feature */}
-          <Field label="Feature Description" required hint="Describe what the feature does and what work is needed on which page.">
+          <Field
+            label="Feature Description"
+            required
+            hint="Describe what the feature does and what work is needed on which page."
+          >
             <textarea
               data-testid="feature-input"
               value={feature}
               onChange={(e) => setFeature(e.target.value)}
-              placeholder="e.g. Add a license field to the block registration form. License options are selectable via dropdown, and the selected value is sent to POST /api/v1/blocks as license_id."
+              placeholder="e.g. Add a license field to the block registration form."
               rows={3}
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none resize-none"
               style={{
@@ -174,12 +193,16 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
           </Field>
 
           {/* DoD */}
-          <Field label="Definition of Done" required hint="Write in passive past tense. e.g. The license field is added to the block registration form.">
+          <Field
+            label="Definition of Done"
+            required
+            hint="Write in passive past tense. e.g. The license field is added to the block registration form."
+          >
             <textarea
               data-testid="dod-input"
               value={dod}
               onChange={(e) => setDod(e.target.value)}
-              placeholder="e.g. The license dropdown is displayed on the block registration form. The selected license_id is sent to POST /api/v1/blocks."
+              placeholder="e.g. The license dropdown is displayed on the block registration form."
               rows={3}
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none resize-none"
               style={{
@@ -192,12 +215,23 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
         </div>
       </div>
 
+      {/* Error */}
+      {error && (
+        <p
+          className="text-[12px] mb-3 px-3 py-2 rounded-[8px]"
+          style={{ background: '#FAECE7', color: '#993C1D' }}
+          data-testid="run-error"
+        >
+          {error}
+        </p>
+      )}
+
       {/* Run button */}
       <div className="flex justify-end">
         <button
           type="button"
           data-testid="run-btn"
-          onClick={handleRun}
+          onClick={() => { void handleRun() }}
           disabled={!canRun || isRunning}
           className="flex items-center gap-[6px] px-[22px] py-[10px] rounded-[8px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: 'var(--accent)' }}
@@ -241,10 +275,4 @@ function Field({ label, required, hint, children }: FieldProps) {
       )}
     </div>
   )
-}
-
-function nowStr(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
