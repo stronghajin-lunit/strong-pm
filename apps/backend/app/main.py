@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.integrations import jira
+from app.integrations import confluence, jira
+from app.integrations.confluence import ConfluenceIntegrationError
 from app.integrations.jira import JiraIntegrationError
 
 
@@ -15,6 +16,7 @@ from app.integrations.jira import JiraIntegrationError
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     await jira.aclose()
+    await confluence.aclose()
 
 
 app = FastAPI(
@@ -39,6 +41,13 @@ async def jira_integration_error_handler(
     request: Request, exc: JiraIntegrationError
 ) -> JSONResponse:
     return JSONResponse(status_code=502, content={"detail": {"code": "JIRA_UPSTREAM_ERROR"}})
+
+
+@app.exception_handler(ConfluenceIntegrationError)
+async def confluence_integration_error_handler(
+    request: Request, exc: ConfluenceIntegrationError
+) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": {"code": "CONFLUENCE_UPSTREAM_ERROR"}})
 
 
 app.include_router(api_router, prefix="/api/v1")

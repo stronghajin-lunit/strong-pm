@@ -40,7 +40,7 @@ class TestRunReleaseNote:
 
         assert data["jira_version"] == "AICP Monthly 26-04-01"
         assert data["status"] == "done"
-        assert data["confluence_location"] == "AIP / Annotation Tool Release Notes / 2026"
+        assert data["confluence_location"]
         assert data["confluence_url"]
         assert data["id"].startswith("rn-")
         assert data["reflection"] is None

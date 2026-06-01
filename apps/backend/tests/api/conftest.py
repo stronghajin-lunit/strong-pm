@@ -1,8 +1,8 @@
-"""Stub the Jira integration for API tests.
+"""Stub the Jira and Confluence integrations for API tests.
 
-API tests exercise service/endpoint behaviour, not Jira's wire format, so we
-replace the two Jira coroutines with deterministic fakes. The real HTTP code in
-app.integrations.jira is covered separately by tests/integration/test_jira_client.py.
+API tests exercise service/endpoint behaviour, not the Atlassian wire formats, so
+we replace the integration coroutines with deterministic fakes. The real HTTP code
+is covered separately by tests/integration/test_{jira,confluence}_client.py.
 
 This conftest applies only to tests under tests/api/, so the integration tests
 still call the real functions.
@@ -12,7 +12,9 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app.integrations import confluence as confluence_integration
 from app.integrations import jira as jira_integration
+from app.integrations.confluence import ConfluencePublishResult
 from app.integrations.jira import JiraTicketData, JiraVersionData
 
 _SYNCED_AT = datetime(2026, 4, 1, tzinfo=timezone.utc)
@@ -58,3 +60,16 @@ def stub_jira(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(jira_integration, "fetch_fix_versions", _fetch_fix_versions)
     monkeypatch.setattr(jira_integration, "fetch_tickets_by_version", _fetch_tickets_by_version)
+
+
+@pytest.fixture(autouse=True)
+def stub_confluence(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _publish_release_note(
+        confluence_page: str, jira_version_label: str, content: str
+    ) -> ConfluencePublishResult:
+        return ConfluencePublishResult(
+            confluence_location=f"AIP / {jira_version_label} Release Note",
+            confluence_url="https://example.atlassian.net/wiki/spaces/AIP/pages/12345",
+        )
+
+    monkeypatch.setattr(confluence_integration, "publish_release_note", _publish_release_note)

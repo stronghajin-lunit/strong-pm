@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     # JSON-decoding a list-typed env var). Parsed via jira_project_keys_list.
     JIRA_PROJECT_KEYS: str = ""
 
+    # Confluence (Atlassian Cloud). Reuses JIRA_BASE_URL/EMAIL/API_TOKEN for the
+    # site host and auth; only the publish target differs (one space, a parent
+    # page per release-note type).
+    CONFLUENCE_SPACE_KEY: str = ""
+    CONFLUENCE_ODM_PARENT_ID: str = ""
+    CONFLUENCE_ANNOTATION_PARENT_ID: str = ""
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
