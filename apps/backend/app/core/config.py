@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     # Format: "ODM=123,Annotation Admin=456,Annotation Tool=789"
     JIRA_BOARD_IDS: str = ""
 
+    # Sprint Report Creator — Onco board ID for sprint list + issue fetch.
+    JIRA_SPRINT_BOARD_ID: int = 0
+    # Confluence parent page where sprint reports are published.
+    CONFLUENCE_SPRINT_PARENT_ID: str = ""
+    # Confluence page used as few-shot example for AI generation.
+    CONFLUENCE_SPRINT_EXAMPLE_PAGE_ID: str = "5400365750"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]

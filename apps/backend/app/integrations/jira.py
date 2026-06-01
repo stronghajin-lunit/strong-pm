@@ -290,3 +290,131 @@ async def add_issue_to_sprint(sprint_id: int, issue_key: str) -> None:
         raise JiraIntegrationError(
             f"Failed to add {issue_key} to sprint {sprint_id}: {response.status_code}"
         )
+
+
+# ─── Sprint Report ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class SprintIssueData:
+    key: str
+    summary: str
+    issue_type: str
+    status: str
+    assignee_name: str | None
+    story_points: float | None
+    epic_key: str | None
+    epic_summary: str | None
+
+
+_SPRINT_ISSUE_FIELDS = (
+    "summary,issuetype,status,assignee,"
+    "customfield_10016,customfield_10028,"  # story points (various field IDs)
+    "parent,issuelinks"
+)
+
+
+def _parse_story_points(fields: dict[str, Any]) -> float | None:
+    for field in ("customfield_10016", "customfield_10028", "story_points"):
+        val = fields.get(field)
+        if val is not None:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _parse_epic(fields: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Return (epic_key, epic_summary) from an issue's fields."""
+    parent = fields.get("parent") or {}
+    parent_type = (parent.get("fields") or {}).get("issuetype", {}).get("name", "")
+    if parent_type == "Epic":
+        return str(parent["key"]), str((parent.get("fields") or {}).get("summary", ""))
+    # Classic epic link field
+    epic_key = fields.get("customfield_10014")
+    if epic_key:
+        return str(epic_key), None
+    return None, None
+
+
+async def fetch_sprint_issues(sprint_id: int) -> list[SprintIssueData]:
+    """Return all issues in a sprint (Agile API), excluding sub-tasks."""
+    issues: list[SprintIssueData] = []
+    start_at = 0
+    while True:
+        response = await _agile_get(
+            f"/rest/agile/1.0/sprint/{sprint_id}/issue",
+            params={
+                "fields": _SPRINT_ISSUE_FIELDS,
+                "startAt": start_at,
+                "maxResults": 100,
+            },
+        )
+        data = _ensure_ok(response)
+        raw_issues: list[dict[str, Any]] = data.get("issues", [])
+        for raw in raw_issues:
+            fields = raw.get("fields") or {}
+            issue_type = (fields.get("issuetype") or {}).get("name", "")
+            if issue_type in ("Sub-task", "Subtask"):
+                continue
+            epic_key, epic_summary = _parse_epic(fields)
+            assignee = fields.get("assignee") or {}
+            issues.append(
+                SprintIssueData(
+                    key=str(raw["key"]),
+                    summary=str(fields.get("summary") or ""),
+                    issue_type=issue_type,
+                    status=str((fields.get("status") or {}).get("name", "")),
+                    assignee_name=assignee.get("displayName"),
+                    story_points=_parse_story_points(fields),
+                    epic_key=epic_key,
+                    epic_summary=epic_summary,
+                )
+            )
+        total = data.get("total", 0)
+        start_at += len(raw_issues)
+        if start_at >= total or not raw_issues:
+            break
+    return issues
+
+
+async def fetch_issue_fields(issue_key: str, fields: str) -> dict[str, Any]:
+    """Fetch a single issue and return its fields dict."""
+    response = await _get(f"/rest/api/3/issue/{issue_key}", params={"fields": fields})
+    if response.status_code == 404:
+        return {}
+    data = _ensure_ok(response)
+    return dict(data.get("fields") or {})
+
+
+async def resolve_initiative_from_epic(epic_key: str) -> str | None:
+    """
+    RAD Epic → 'implements' link → PM ticket → parent Epic summary → initiative.
+    Returns None if the chain cannot be resolved.
+    """
+    epic_fields = await fetch_issue_fields(epic_key, "issuelinks")
+    if not epic_fields:
+        return None
+
+    pm_key: str | None = None
+    for link in epic_fields.get("issuelinks") or []:
+        link_type = (link.get("type") or {}).get("name", "")
+        if link_type.lower() == "implements":
+            outward = link.get("outwardIssue") or {}
+            inward = link.get("inwardIssue") or {}
+            target = outward or inward
+            if target:
+                pm_key = str(target["key"])
+                break
+
+    if not pm_key:
+        return None
+
+    pm_fields = await fetch_issue_fields(pm_key, "parent")
+    if not pm_fields:
+        return None
+
+    parent = pm_fields.get("parent") or {}
+    parent_summary = ((parent.get("fields") or {}).get("summary") or "").strip()
+    return parent_summary if parent_summary else None

@@ -18,7 +18,13 @@ from app.integrations import confluence as confluence_integration
 from app.integrations import jira as jira_integration
 from app.integrations.ai import JiraTicketAction, ReleaseNoteContent
 from app.integrations.confluence import ConfluencePublishResult
-from app.integrations.jira import JiraIssueResult, JiraSprintData, JiraTicketData, JiraVersionData
+from app.integrations.jira import (
+    JiraIssueResult,
+    JiraSprintData,
+    JiraTicketData,
+    JiraVersionData,
+    SprintIssueData,
+)
 
 _SYNCED_AT = datetime(2026, 4, 1, tzinfo=UTC)
 
@@ -136,5 +142,60 @@ def stub_jira_ticket_writer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(jira_integration, "create_issue", _create_issue)
     monkeypatch.setattr(jira_integration, "fetch_sprints", _fetch_sprints)
     monkeypatch.setattr(jira_integration, "add_issue_to_sprint", _add_issue_to_sprint)
-    # Provide a board ID for "ODM" so the service doesn't 502
     monkeypatch.setattr(settings, "JIRA_BOARD_IDS", "ODM=42,Annotation Admin=43,Annotation Tool=44")
+
+
+_STUB_SPRINT_ISSUES: list[SprintIssueData] = [
+    SprintIssueData(
+        key="RAD-100", summary="Build TMA Registration Page",
+        issue_type="Story", status="Done",
+        assignee_name="Hajin Lee", story_points=3.0,
+        epic_key="RAD-90", epic_summary="TMA Module",
+    ),
+    SprintIssueData(
+        key="RAD-101", summary="Add license field to block form",
+        issue_type="Task", status="Done",
+        assignee_name="Yiseul Kwon", story_points=2.0,
+        epic_key="RAD-90", epic_summary="TMA Module",
+    ),
+]
+
+
+@pytest.fixture(autouse=True)
+def stub_sprint_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _fetch_sprint_issues(sprint_id: int) -> list[SprintIssueData]:
+        return list(_STUB_SPRINT_ISSUES)
+
+    async def _resolve_initiative_from_epic(epic_key: str) -> str | None:
+        return "[Onco] Core Platform"
+
+    async def _fetch_page_storage(page_id: str) -> str:
+        return "<table><tbody><tr><td>Example</td></tr></tbody></table>"
+
+    async def _generate_sprint_report(
+        sprint_label: str,
+        week_number: int,
+        grouped_data: list[dict],
+        total_sp: float,
+        example_page_storage: str,
+    ) -> str:
+        return "<table><tbody><tr><td>Core Platform</td><td>TMA Module</td></tr></tbody></table>"
+
+    async def _publish_sprint_report(
+        title: str, content_storage: str, parent_id: str
+    ) -> object:
+        from app.integrations.confluence import ConfluencePublishResult
+        return ConfluencePublishResult(
+            confluence_location=f"AIP / {title}",
+            confluence_url="https://example.atlassian.net/wiki/spaces/AIP/pages/99999",
+        )
+
+    monkeypatch.setattr(jira_integration, "fetch_sprint_issues", _fetch_sprint_issues)
+    monkeypatch.setattr(
+        jira_integration, "resolve_initiative_from_epic", _resolve_initiative_from_epic
+    )
+    monkeypatch.setattr(confluence_integration, "fetch_page_storage", _fetch_page_storage)
+    monkeypatch.setattr(ai_integration, "generate_sprint_report", _generate_sprint_report)
+    monkeypatch.setattr(confluence_integration, "publish_sprint_report", _publish_sprint_report)
+    monkeypatch.setattr(settings, "JIRA_SPRINT_BOARD_ID", 324)
+    monkeypatch.setattr(settings, "CONFLUENCE_SPRINT_PARENT_ID", "12345")

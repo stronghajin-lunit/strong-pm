@@ -198,6 +198,73 @@ async def generate_ticket_description(
     return body
 
 
+_SPRINT_REPORT_SYSTEM = """\
+You are a technical PM writing a Confluence sprint report for a medical AI software team.
+You will receive structured sprint data (grouped by Initiative and Epic) and an example \
+Confluence page in storage format.
+
+Your task:
+1. Rewrite each ticket summary following these terminology rules:
+   - "page" → "UI" (e.g. "list page" → "list UI")
+   - "Develop" → "Build" or "Implement"
+   - "Create page" → "Build UI"
+   - "Make" → use a specific verb
+   - "API endpoint" → "API" (omit "endpoint")
+   - Preferred verbs: Build, Implement, Add, Update, Fix, Migrate, Define
+2. Output a Confluence storage-format (XHTML) sprint summary table with columns:
+   Initiative | Epic | Summary | Story/Task Count | SP | % Capacity | Main Contributors
+3. Group rows by Initiative → Epic. One row per unique (Initiative, Epic) group.
+4. "% of Planned Capacity" = (group SP / total SP) * 100, formatted as "X%".
+5. "Main Contributors" = comma-separated short names (most SP first).
+6. For groups with no story points, show "—" in SP and "—" in % columns.
+7. Output ONLY the Confluence storage XML. No explanation, no markdown fences.\
+"""
+
+
+async def generate_sprint_report(
+    sprint_label: str,
+    week_number: int,
+    grouped_data: list[dict],
+    total_sp: float,
+    example_page_storage: str,
+) -> str:
+    """Generate Confluence sprint report as storage-format XML."""
+    client = _get_client()
+
+    rows_text = "\n".join(
+        f"Initiative: {row['initiative']}\n"
+        f"  Epic: {row['epic']}\n"
+        f"  Tickets: {', '.join(row['summaries'])}\n"
+        f"  Story count: {row['story_count']} | Task count: {row['task_count']}\n"
+        f"  Story Points: {row['story_points']}\n"
+        f"  Contributors: {', '.join(row['contributors'])}"
+        for row in grouped_data
+    )
+    user_content = (
+        f"Sprint: {sprint_label} (Week {week_number})\n"
+        f"Total Story Points: {total_sp}\n\n"
+        f"=== Sprint Data ===\n{rows_text}\n\n"
+        f"=== Example Confluence Page (reference format) ===\n{example_page_storage[:8000]}"
+    )
+
+    try:
+        response = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=4096,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": _SPRINT_REPORT_SYSTEM,
+                     "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    result = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not result:
+        raise AIIntegrationError("Anthropic returned empty sprint report")
+    return result
+
+
 async def generate_ticket_action(feature_description: str) -> JiraTicketAction:
     """Generate a verb+feature_name action phrase for the Jira summary."""
     client = _get_client()

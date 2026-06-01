@@ -193,6 +193,51 @@ async def _resolve_space_id(space_key: str) -> str:
     return str(results[0]["id"])
 
 
+async def fetch_page_storage(page_id: str) -> str:
+    """Return Confluence page body in storage format (for few-shot reference)."""
+    try:
+        response = await _get_client().get(
+            f"/api/v2/pages/{page_id}",
+            params={"body-format": "storage"},
+        )
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(response)
+    return str((data.get("body") or {}).get("storage", {}).get("value", ""))
+
+
+async def publish_sprint_report(
+    title: str,
+    content_storage: str,
+    parent_id: str,
+) -> ConfluencePublishResult:
+    """Create a new Confluence page with pre-built storage-format content."""
+    _require_config()
+    space_id = await _resolve_space_id(settings.CONFLUENCE_SPACE_KEY)
+
+    payload = {
+        "spaceId": space_id,
+        "status": "current",
+        "title": title,
+        "parentId": parent_id,
+        "body": {"representation": "storage", "value": content_storage},
+    }
+    try:
+        response = await _get_client().post("/api/v2/pages", json=payload)
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(response)
+
+    webui = str(data.get("_links", {}).get("webui", ""))
+    site = settings.JIRA_BASE_URL.rstrip("/")
+    confluence_url = f"{site}/wiki{webui}" if webui else ""
+    confluence_location = f"{settings.CONFLUENCE_SPACE_KEY} / {title}"
+    return ConfluencePublishResult(
+        confluence_location=confluence_location,
+        confluence_url=confluence_url,
+    )
+
+
 async def publish_release_note(
     confluence_page: str,
     jira_version_label: str,
