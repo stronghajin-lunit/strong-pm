@@ -67,7 +67,7 @@ def stub_jira(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def stub_confluence(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _publish_release_note(
-        confluence_page: str, jira_version_label: str, content: str
+        confluence_page: str, jira_version_label: str, content: str, jira_version_id: str = ""
     ) -> ConfluencePublishResult:
         return ConfluencePublishResult(
             confluence_location=f"AIP / {jira_version_label} Release Note",

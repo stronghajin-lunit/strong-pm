@@ -54,7 +54,7 @@ async def run(db: AsyncSession, jira_version_id: str, confluence_page: str) -> R
 
     content = await ai.generate_release_note(version_data.label, raw_tickets)
     publish_result = await confluence.publish_release_note(
-        confluence_page, version_data.label, content.body
+        confluence_page, version_data.label, content.body, jira_version_id=version_data.jira_id
     )
 
     now = datetime.now(timezone.utc)

@@ -32,7 +32,8 @@ class TestPublishReleaseNote:
     @respx.mock
     @pytest.mark.asyncio
     async def test_creates_child_page_and_returns_url(self) -> None:
-        """Resolves space id, posts a child page, builds the page URL."""
+        """Resolves space id, posts a child page (date-prefixed title, metadata
+        table, bold rendered), and builds the page URL."""
         respx.get(f"{WIKI}/api/v2/spaces").mock(
             return_value=httpx.Response(200, json={"results": [{"id": "555", "key": "AIP"}]})
         )
@@ -44,16 +45,25 @@ class TestPublishReleaseNote:
         )
 
         result = await confluence.publish_release_note(
-            "annotation", "AICP Monthly 26-04-01", "## Title\n\n- RAD-1: fix"
+            "annotation",
+            "AICP Monthly 26-04-01",
+            "# Highlights\n\nBig release.\n\n### New Features\n\n- **Cool thing** — does X. (RAD-1)",
+            jira_version_id="10042",
         )
 
-        # parent id for 'annotation' and resolved space id are sent in the body
-        sent = create.calls.last.request
-        body = sent.content.decode()
+        body = create.calls.last.request.content.decode()
         assert '"parentId": "2002"' in body or '"parentId":"2002"' in body
         assert '"spaceId": "555"' in body or '"spaceId":"555"' in body
+        # date-prefixed title, not "<label> Release Note"
+        assert "26-04-01 AICP Monthly" in body
+        # metadata table + version link + ISO date
+        assert "<table" in body
+        assert "fixVersion%3D10042" in body
+        assert 'datetime=\\"2026-04-01\\"' in body or 'datetime="2026-04-01"' in body
+        # inline bold is rendered, not literal asterisks
+        assert "<strong>Cool thing</strong>" in body
         assert result.confluence_url == f"{WIKI}/spaces/AIP/pages/999/Note"
-        assert result.confluence_location == "AIP / AICP Monthly 26-04-01 Release Note"
+        assert result.confluence_location == "AIP / 26-04-01 AICP Monthly"
 
     @respx.mock
     @pytest.mark.asyncio

@@ -7,12 +7,15 @@ for Jira (JIRA_BASE_URL/EMAIL/API_TOKEN); the Confluence API lives under the
 """
 
 import html
+import re
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 from app.core.config import settings
+
+_DATE_RE = re.compile(r"(\d{2,4})-(\d{2})-(\d{2})")
 
 
 @dataclass
@@ -91,12 +94,42 @@ def _ensure_ok(response: httpx.Response) -> dict[str, Any]:
     return data
 
 
-def _markdown_to_storage(md: str) -> str:
-    """Minimal Markdown -> Confluence storage (XHTML) conversion.
+def _extract_dates(label: str) -> tuple[str | None, str | None]:
+    """Return (display_date, iso_date) parsed from a version label, or (None, None).
 
-    Handles the headings, bullet lists, and paragraphs produced by the release
-    note generator. Good enough for valid, readable storage format.
+    'AICP Monthly 26-06-04' -> ('26-06-04', '2026-06-04')
+    'Case Curator 2025-09-11' -> ('2025-09-11', '2025-09-11')
     """
+    m = _DATE_RE.search(label)
+    if not m:
+        return None, None
+    display = m.group(0)
+    year = m.group(1)
+    iso_year = year if len(year) == 4 else f"20{year}"
+    iso = f"{iso_year}-{m.group(2)}-{m.group(3)}"
+    return display, iso
+
+
+def _build_title(label: str) -> str:
+    """Date-prefixed title, e.g. 'AICP Monthly 26-06-04' -> '26-06-04 AICP Monthly'."""
+    display, _ = _extract_dates(label)
+    if not display:
+        return label
+    remainder = label.replace(display, "").strip(" -/")
+    return f"{display} {remainder}".strip() if remainder else display
+
+
+def _inline(text: str) -> str:
+    """Escape HTML, then convert inline Markdown (**bold**, `code`)."""
+    s = html.escape(text)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"`(.+?)`", r"<code>\1</code>", s)
+    return s
+
+
+def _markdown_to_storage(md: str) -> str:
+    """Markdown -> Confluence storage (XHTML): headings, bullet lists, paragraphs,
+    and inline bold/code."""
     out: list[str] = []
     in_list = False
     for raw in md.split("\n"):
@@ -105,7 +138,7 @@ def _markdown_to_storage(md: str) -> str:
             if not in_list:
                 out.append("<ul>")
                 in_list = True
-            out.append(f"<li>{html.escape(line[2:])}</li>")
+            out.append(f"<li>{_inline(line[2:])}</li>")
             continue
         if in_list:
             out.append("</ul>")
@@ -113,16 +146,39 @@ def _markdown_to_storage(md: str) -> str:
         if not line:
             continue
         if line.startswith("### "):
-            out.append(f"<h3>{html.escape(line[4:])}</h3>")
+            out.append(f"<h3>{_inline(line[4:])}</h3>")
         elif line.startswith("## "):
-            out.append(f"<h2>{html.escape(line[3:])}</h2>")
+            out.append(f"<h2>{_inline(line[3:])}</h2>")
         elif line.startswith("# "):
-            out.append(f"<h1>{html.escape(line[2:])}</h1>")
+            out.append(f"<h1>{_inline(line[2:])}</h1>")
         else:
-            out.append(f"<p>{html.escape(line)}</p>")
+            out.append(f"<p>{_inline(line)}</p>")
     if in_list:
         out.append("</ul>")
     return "".join(out)
+
+
+def _metadata_table(jira_version_label: str, jira_version_id: str) -> str:
+    """Build the top metadata table (Release link / Date / Version)."""
+    rows: list[str] = []
+    if jira_version_id:
+        site = settings.JIRA_BASE_URL.rstrip("/")
+        url = f"{site}/issues/?jql=fixVersion%3D{jira_version_id}"
+        rows.append(
+            f"<tr><td><p><strong>Release</strong></p></td>"
+            f'<td><p><a href="{html.escape(url)}">{_inline(jira_version_label)}</a></p></td></tr>'
+        )
+    _, iso = _extract_dates(jira_version_label)
+    if iso:
+        rows.append(
+            f"<tr><td><p><strong>Date</strong></p></td>"
+            f'<td><p><time datetime="{iso}" /></p></td></tr>'
+        )
+    rows.append(
+        f"<tr><td><p><strong>Version</strong></p></td>"
+        f"<td><p>{_inline(jira_version_label)}</p></td></tr>"
+    )
+    return f'<table data-layout="default"><tbody>{"".join(rows)}</tbody></table>'
 
 
 async def _resolve_space_id(space_key: str) -> str:
@@ -141,19 +197,21 @@ async def publish_release_note(
     confluence_page: str,
     jira_version_label: str,
     content: str,
+    jira_version_id: str = "",
 ) -> ConfluencePublishResult:
     """Create a new Confluence child page with the release note content."""
     _require_config()
     parent_id = _parent_id_for(confluence_page)
     space_id = await _resolve_space_id(settings.CONFLUENCE_SPACE_KEY)
 
-    title = f"{jira_version_label} Release Note"
+    title = _build_title(jira_version_label)
+    body = _metadata_table(jira_version_label, jira_version_id) + _markdown_to_storage(content)
     payload = {
         "spaceId": space_id,
         "status": "current",
         "title": title,
         "parentId": parent_id,
-        "body": {"representation": "storage", "value": _markdown_to_storage(content)},
+        "body": {"representation": "storage", "value": body},
     }
 
     try:
