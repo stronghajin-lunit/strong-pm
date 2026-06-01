@@ -193,6 +193,85 @@ async def _resolve_space_id(space_key: str) -> str:
     return str(results[0]["id"])
 
 
+_TABLE_RE = re.compile(r"<table\b[^>]*>.*?</table>", re.DOTALL | re.IGNORECASE)
+_TBODY_RE = re.compile(r"(<tbody>)(.*?)(</tbody>)", re.DOTALL | re.IGNORECASE)
+_ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.DOTALL | re.IGNORECASE)
+
+
+def _fill_total_row_values(total_row: str, total_count: int, total_sp: float) -> str:
+    """Replace the first two numeric <strong> values in the Total row."""
+    sp_str = str(int(total_sp)) if total_sp == int(total_sp) else f"{total_sp:.1f}"
+    replacements = iter([str(total_count), sp_str])
+
+    def _sub(m: re.Match) -> str:
+        val = next(replacements, None)
+        return f"{m.group(1)}{val}{m.group(2)}" if val is not None else m.group(0)
+
+    return re.sub(
+        r"(<strong[^>]*>)\s*\d+\.?\d*\s*(</strong>)", _sub, total_row, flags=re.IGNORECASE
+    )
+
+
+def splice_sprint_table(
+    existing_section: str,
+    data_rows_html: str,
+    total_count: int,
+    total_sp: float,
+) -> str:
+    """Replace only data rows in the Sprint Summary table.
+
+    Keeps header rows (containing <th>) and the last row (Total, provided by template).
+    Fills in numeric values in the Total row.
+    """
+    table_m = _TABLE_RE.search(existing_section)
+    if not table_m:
+        return data_rows_html  # no table in section — fallback
+
+    table_html = table_m.group(0)
+    tbody_m = _TBODY_RE.search(table_html)
+    if not tbody_m:
+        return data_rows_html
+
+    tbody_open, tbody_content, tbody_close = tbody_m.groups()
+    rows = _ROW_RE.findall(tbody_content)
+
+    if len(rows) < 2:
+        return data_rows_html
+
+    header_rows = [r for r in rows if re.search(r"<th\b", r, re.IGNORECASE)]
+    if not header_rows:
+        header_rows = rows[:1]  # treat first row as header
+
+    total_row = _fill_total_row_values(rows[-1], total_count, total_sp)
+
+    new_tbody = tbody_open + "".join(header_rows) + data_rows_html + total_row + tbody_close
+    new_table = table_html.replace(tbody_m.group(0), new_tbody)
+
+    return (
+        existing_section[: table_m.start()]
+        + new_table
+        + existing_section[table_m.end() :]
+    )
+
+
+def _extract_section_body(storage: str, section_title: str) -> str:
+    """Return the content of a section (text between its heading and the next)."""
+    pattern = re.compile(
+        r"(<h([1-6])[^>]*>[^<]*" + re.escape(section_title) + r"[^<]*</h\2>)",
+        re.IGNORECASE,
+    )
+    m = pattern.search(storage)
+    if not m:
+        return ""
+    heading_end = m.end()
+    heading_level = int(m.group(2))
+    next_m = re.search(
+        r"<h([1-" + str(heading_level) + r"])[^>]*>", storage[heading_end:], re.IGNORECASE
+    )
+    section_end = heading_end + next_m.start() if next_m else len(storage)
+    return storage[heading_end:section_end]
+
+
 def replace_section(storage: str, section_title: str, new_content: str) -> str:
     """Replace a section's body in Confluence storage XML.
 
@@ -257,17 +336,24 @@ async def fetch_page_storage(page_id: str) -> str:
 
 async def update_sprint_report(
     page_id: str,
-    sprint_summary_storage: str,
+    sprint_data_rows: str,
+    total_count: int,
+    total_sp: float,
+    completion_prefix: str,
     key_deliverables_storage: str,
 ) -> ConfluencePublishResult:
-    """Update only 'Sprint Summary' and 'Key Deliverables Completed' sections.
+    """Update Sprint Summary (data rows only) and Key Deliverables Completed.
 
-    Fetches the existing page, replaces only those two sections in-place,
-    and PUTs the merged result. All other sections remain unchanged.
+    For Sprint Summary:
+    - Keeps the existing table structure (header rows + Total row) from the template.
+    - Splices new data <tr> rows into the table body.
+    - Fills numeric values in the Total row.
+    - Prepends completion_prefix (Sprint Completion Rate) if provided.
+
+    All other page sections remain unchanged.
     """
     _require_config()
 
-    # Fetch current page (metadata + body)
     try:
         get_resp = await _get_client().get(
             f"/api/v2/pages/{page_id}",
@@ -281,8 +367,13 @@ async def update_sprint_report(
     title: str = str(page_data.get("title", "Sprint Report"))
     existing_storage: str = (page_data.get("body") or {}).get("storage", {}).get("value", "")
 
-    # Replace only the two target sections
-    updated = replace_section(existing_storage, "Sprint Summary", sprint_summary_storage)
+    # Build new Sprint Summary section: keep table structure, only swap data rows
+    existing_sprint_body = _extract_section_body(existing_storage, "Sprint Summary")
+    new_sprint_body = completion_prefix + splice_sprint_table(
+        existing_sprint_body, sprint_data_rows, total_count, total_sp
+    )
+
+    updated = replace_section(existing_storage, "Sprint Summary", new_sprint_body)
     updated = replace_section(updated, "Key Deliverables Completed", key_deliverables_storage)
 
     payload = {

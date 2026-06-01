@@ -208,23 +208,18 @@ Output EXACTLY two blocks separated by the delimiter lines shown below. \
 No other text, no markdown fences.
 
 === SPRINT_SUMMARY ===
-<Sprint Summary section as Confluence storage-format XHTML.
+<Generate ONLY the data <tr>...</tr> rows for the Sprint Summary table.
+Do NOT output: table tags, colgroup, thead, tbody, header rows, or a Total row.
+The table structure and Total row already exist in the page template — do not touch them.
 
-If Sprint Completion Rate is provided:
-  Add this line BEFORE the table:
-  <p><ac:structured-macro ac:name="status" ac:schema-version="1"><ac:parameter \
-ac:name="colour">Green</ac:parameter><ac:parameter ac:name="title">Sprint Completion \
-Rate</ac:parameter></ac:structured-macro> {rate}%</p>
-
-Then the table. Columns: Initiative | Epic | Summary | Story / Task Count | Story Points | \
-% of Planned Capacity | Main Contributors
-Rules:
-- One row per (Initiative, Epic) group. Leave Initiative cell blank if initiative is "(blank)".
-- Summary cell: <ul><li>one bullet per ticket</li></ul>. Apply: "page"→"UI", \
-"Develop"→"Build"/"Implement", "API endpoint"→"API".
+One <tr> per (Initiative, Epic) group. Rules:
+- Initiative cell: leave empty if initiative is "(blank)".
+- Summary cell: <ul><li>one bullet per ticket</li></ul>. \
+Apply: "page"→"UI", "Develop"→"Build"/"Implement", "API endpoint"→"API".
 - "% of Planned Capacity" = (group SP / total SP) * 100 as "X%". Show "—" when SP is 0.
-- "Main Contributors" = comma-separated short names by SP descending.
-- Last row (bold, no Initiative/Epic): Total | {total count} | {total SP} | 100% | (empty)>
+- "Main Contributors" = comma-separated short names sorted by SP descending.
+- Follow the column order: Initiative | Epic | Summary | Story/Task Count | \
+Story Points | % of Planned Capacity | Main Contributors.>
 
 === KEY_DELIVERABLES ===
 <Key Deliverables Completed section as Confluence storage-format XHTML.
@@ -257,20 +252,11 @@ async def generate_sprint_report(
         for row in grouped_data
     )
 
-    completion_info = ""
-    if sp_goal:
-        rate = round(total_sp / sp_goal * 100, 1)
-        completion_info = (
-            f"SP Goal: {sp_goal} | Total SP: {total_sp} | "
-            f"Sprint Completion Rate: {rate}%\n"
-        )
-
     user_content = (
         f"Sprint: {sprint_label} (Week {week_number})\n"
-        f"{completion_info}"
         f"Total Story Points: {total_sp} | Total Count: {total_count}\n\n"
         f"=== Sprint Data ===\n{rows_text}\n\n"
-        f"=== Example Confluence Page (reference format) ===\n{example_page_storage[:8000]}"
+        f"=== Example Confluence Page (reference row format) ===\n{example_page_storage[:8000]}"
     )
 
     try:
