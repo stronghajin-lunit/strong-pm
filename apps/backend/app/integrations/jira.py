@@ -487,9 +487,9 @@ async def fetch_project_versions(project_key: str) -> list[JiraVersionData]:
 
 _PERIOD_JQL_MAP = {
     "15d": "15d",
-    "1m": "1M",
-    "2m": "2M",
-    "3m": "3M",
+    "1m": "30d",
+    "2m": "60d",
+    "3m": "90d",
 }
 
 
