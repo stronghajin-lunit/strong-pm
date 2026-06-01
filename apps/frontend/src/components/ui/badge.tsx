@@ -5,15 +5,20 @@ interface BadgeProps {
 }
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; bg: string; color: string }> = {
-  active: {
-    label: 'Active',
-    bg: '#E1F5EE',
-    color: '#0F6E56',
+  not_started: {
+    label: 'Not Started',
+    bg: '#F0F0F0',
+    color: '#767676',
   },
   planning: {
     label: 'Planning',
     bg: '#FAEEDA',
     color: '#854F0B',
+  },
+  active: {
+    label: 'Active',
+    bg: '#EFF6FF',
+    color: '#1E40AF',
   },
   done: {
     label: 'Done',
@@ -30,7 +35,7 @@ export function Badge({ status }: BadgeProps) {
       data-testid="badge"
       data-status={status}
       style={{ backgroundColor: config.bg, color: config.color }}
-      className="text-[10px] font-semibold px-[7px] py-[1px] rounded-[10px] whitespace-nowrap"
+      className="text-[11px] font-semibold px-[7px] py-[1px] rounded-[5px] whitespace-nowrap"
     >
       {config.label}
     </span>

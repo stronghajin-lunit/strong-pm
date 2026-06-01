@@ -5,25 +5,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: '#F7F6F3',
+        bg: '#F4F6F9',
         surface: {
           DEFAULT: '#FFFFFF',
-          2: '#F2F1EE',
-          3: '#ECEAE6',
+          2: '#EEF1F6',
+          3: '#E3E7EF',
         },
         text: {
-          1: '#0F0F0E',
-          2: '#5C5B58',
-          3: '#9B9A97',
+          1: '#0D0F14',
+          2: '#4A5068',
+          3: '#8C93A8',
         },
         accent: {
-          DEFAULT: '#1F3F8E',
-          light: '#E8EDF8',
-          mid: '#C5D3EE',
+          DEFAULT: '#1E40AF',
+          light: '#EFF6FF',
+          mid: '#BFDBFE',
         },
         teal: {
-          DEFAULT: '#0F6E56',
-          light: '#E1F5EE',
+          DEFAULT: '#1E40AF',
+          light: '#EFF6FF',
         },
         amber: {
           DEFAULT: '#854F0B',
