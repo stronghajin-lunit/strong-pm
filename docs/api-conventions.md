@@ -107,3 +107,6 @@
 | GET | `/api/v1/jira-tickets/sprints` | 제품별 스프린트 목록 (Agile API 실연동) | 2026-06 |
 | POST | `/api/v1/jira-tickets/run` | Jira 티켓 AI 생성 + 스프린트 할당 | 2026-06 |
 | GET | `/api/v1/jira-tickets` | 티켓 생성 이력 목록 | 2026-06 |
+| GET | `/api/v1/sprint-reports/sprints` | Onco Sprint 목록 (active + closed) | 2026-06 |
+| POST | `/api/v1/sprint-reports/run` | 스프린트 리포트 AI 생성 + Confluence 발행 | 2026-06 |
+| GET | `/api/v1/sprint-reports` | 스프린트 리포트 이력 목록 | 2026-06 |
