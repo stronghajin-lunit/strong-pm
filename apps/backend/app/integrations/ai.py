@@ -138,13 +138,13 @@ _JIRA_TICKET_DESCRIPTION_SYSTEM = (
     "about the system based on the input. Write in English. Be specific and engineer-facing.>\n"
     "\n"
     "DoD\n"
-    "<Expand the given DoD into concrete checkbox items. Each line: '- [ ] ...'.\n"
-    "Add sub-tasks implied by the input (e.g. responsive layout, design review) "
-    "but do not invent unrelated requirements.>\n"
+    "<1–3 checkbox items ONLY. Directly reflect what the user wrote — do not expand, "
+    "do not add implied sub-tasks (no responsive layout, no design review, no cross-browser). "
+    "Each line: '- [ ] ...'. Keep each item short (one clause).>\n"
     "\n"
     "Rules:\n"
     "- No Background section, no Scope section, no other sections.\n"
-    "- Infer reasonably from the input; do not fabricate unrelated details.\n"
+    "- DoD must stay minimal — closer to the user's words is better.\n"
     "- Write Context in English even if the input is in Korean."
 )
 
