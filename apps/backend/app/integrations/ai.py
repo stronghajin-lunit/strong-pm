@@ -208,19 +208,20 @@ Output EXACTLY two blocks separated by the delimiter lines shown below. \
 No other text, no markdown fences.
 
 === SPRINT_SUMMARY ===
-<Sprint Summary table as Confluence storage-format XHTML, matching the reference format.
-Columns: Initiative | Epic | Summary | Count | SP | % Capacity | Main Contributors
+<Sprint Summary table as Confluence storage-format XHTML, matching the reference table format.
+Columns: Initiative | Epic | Summary | Count | SP | % of Planned Capacity | Contributors
 Rules:
-- Group rows by Initiative → Epic. One row per (Initiative, Epic) group.
-- Rewrite ticket summaries: "page"→"UI", "Develop"→"Build"/"Implement", "API endpoint"→"API"
-- "% of Planned Capacity" = (group SP / total SP) * 100, formatted as "X%"
-- "Main Contributors" = comma-separated short names sorted by SP descending
-- Show "—" when SP is zero>
+- One row per (Initiative, Epic) group.
+- Summary cell: <ul><li>one bullet per ticket</li></ul>. Apply: "page"→"UI", \
+"Develop"→"Build"/"Implement", "API endpoint"→"API".
+- "% of Planned Capacity" = (group SP / total SP) * 100 as "X%". Show "—" when SP is 0.
+- "Main Contributors" = comma-separated short names by SP descending.>
 
 === KEY_DELIVERABLES ===
 <Key Deliverables Completed section as Confluence storage-format XHTML.
-A bullet list of the most significant completed items, one line per initiative/epic group.
-Each bullet: short plain-English sentence. No ticket IDs.>\
+For EACH initiative group: <p><strong>{Initiative name}</strong></p> then \
+<ul><li>one concise sentence per epic summarising what was delivered</li></ul>.
+Cover all initiatives. No ticket IDs.>\
 """
 
 

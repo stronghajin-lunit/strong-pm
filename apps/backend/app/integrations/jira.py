@@ -309,19 +309,39 @@ class SprintIssueData:
 
 _SPRINT_ISSUE_FIELDS = (
     "summary,issuetype,status,assignee,"
-    "customfield_10016,customfield_10028,"  # story points (various field IDs)
+    # story points — field ID varies by Jira instance; try all common ones
+    "customfield_10016,customfield_10028,customfield_10004,customfield_10008,"
+    "customfield_10030,customfield_10034,story_points,"
     "parent,issuelinks"
+)
+
+# Common story-points field IDs across Jira Cloud instances
+_SP_FIELD_IDS = (
+    "customfield_10016",  # most common in classic projects
+    "customfield_10028",  # some team-managed projects
+    "customfield_10004",  # legacy/older configs
+    "customfield_10008",  # enterprise configs
+    "customfield_10030",
+    "customfield_10034",
+    "story_points",       # Agile API alias
 )
 
 
 def _parse_story_points(fields: dict[str, Any]) -> float | None:
-    for field in ("customfield_10016", "customfield_10028", "story_points"):
+    for field in _SP_FIELD_IDS:
         val = fields.get(field)
         if val is not None:
             try:
-                return float(val)
+                sp = float(val)
+                if sp >= 0:
+                    return sp
             except (TypeError, ValueError):
                 continue
+    # Last resort: scan all customfield_* for a plausible numeric SP value
+    for key, val in fields.items():
+        if key.startswith("customfield_") and key not in _SP_FIELD_IDS:
+            if isinstance(val, (int, float)) and 0 < val <= 100:
+                return float(val)
     return None
 
 
@@ -390,7 +410,10 @@ async def fetch_issue_fields(issue_key: str, fields: str) -> dict[str, Any]:
 
 async def resolve_initiative_from_epic(epic_key: str) -> str | None:
     """
-    RAD Epic → 'implements' link → PM ticket → parent Epic summary → initiative.
+    RAD Epic → any link to a PM-* ticket → parent Epic summary → initiative.
+
+    Searches all issue links (regardless of link type name) for a PM-* key.
+    Falls back to checking both outward and inward directions.
     Returns None if the chain cannot be resolved.
     """
     epic_fields = await fetch_issue_fields(epic_key, "issuelinks")
@@ -399,14 +422,14 @@ async def resolve_initiative_from_epic(epic_key: str) -> str | None:
 
     pm_key: str | None = None
     for link in epic_fields.get("issuelinks") or []:
-        link_type = (link.get("type") or {}).get("name", "")
-        if link_type.lower() == "implements":
-            outward = link.get("outwardIssue") or {}
-            inward = link.get("inwardIssue") or {}
-            target = outward or inward
-            if target:
-                pm_key = str(target["key"])
+        for direction in ("outwardIssue", "inwardIssue"):
+            target = link.get(direction) or {}
+            key = str(target.get("key", ""))
+            if key.upper().startswith("PM-"):
+                pm_key = key
                 break
+        if pm_key:
+            break
 
     if not pm_key:
         return None
