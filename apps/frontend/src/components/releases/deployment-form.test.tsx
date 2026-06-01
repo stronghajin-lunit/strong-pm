@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DeploymentForm } from './deployment-form'
@@ -140,6 +140,17 @@ describe('DeploymentForm', () => {
       fireEvent.click(screen.getByTestId('dt-run-btn'))
 
       expect(screen.getByTestId('dt-unregistered-prs')).toBeInTheDocument()
+    })
+
+    it('Run 클릭 시 onRunComplete가 DeploymentResult와 함께 호출된다', () => {
+      const onRunComplete = vi.fn()
+      render(<DeploymentForm versionOptions={MOCK_VERSIONS} deploymentData={MOCK_DATA} onRunComplete={onRunComplete} />)
+
+      fireEvent.change(screen.getByTestId('dt-version-select'), { target: { value: 'aicp-0401' } })
+      fireEvent.click(screen.getByTestId('dt-run-btn'))
+
+      expect(onRunComplete).toHaveBeenCalledTimes(1)
+      expect(onRunComplete).toHaveBeenCalledWith(MOCK_DATA['aicp-0401'])
     })
   })
 

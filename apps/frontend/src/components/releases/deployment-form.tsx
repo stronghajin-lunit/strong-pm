@@ -11,11 +11,14 @@ import type {
 
 interface DeploymentFormProps {
   versionOptions: JiraVersionOption[]
-  deploymentData: Record<string, DeploymentResult>
+  deploymentData?: Record<string, DeploymentResult>
+  onRun?: (versionId: string) => Promise<DeploymentResult>
+  onRunComplete?: (result: DeploymentResult) => void
+  initialResult?: DeploymentResult
 }
 
 const DEPLOY_STATUS_CONFIG: Record<DeployStatus, { label: string; bg: string; color: string }> = {
-  'deployed-this': { label: 'Deployed',     bg: '#E0F2EC', color: '#0B6B54' },
+  'deployed-this': { label: 'Deployed',     bg: '#EFF6FF', color: '#1E40AF' },
   'deployed-prev': { label: 'Prev Release', bg: '#FAEEDA', color: '#854F0B' },
   'no-pr':         { label: 'No PR',        bg: '#FAECE7', color: '#993C1D' },
   'unregistered':  { label: 'Unregistered', bg: '#FAEEDA', color: '#854F0B' },
@@ -27,16 +30,31 @@ const STAT_LABEL_COLOR: Record<string, string> = {
   'Deployed (Prev Release)': 'var(--amber)',
 }
 
-export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFormProps) {
+export function DeploymentForm({ versionOptions, deploymentData, onRun, onRunComplete, initialResult }: DeploymentFormProps) {
   const [selectedVersionId, setSelectedVersionId] = useState('')
-  const [result, setResult] = useState<DeploymentResult | null>(null)
+  const [result, setResult] = useState<DeploymentResult | null>(initialResult ?? null)
   const [activeFilter, setActiveFilter] = useState<DeploymentFilter>('all')
+  const [isLoading, setIsLoading] = useState(false)
+  const readOnly = initialResult !== undefined
 
-  const handleRun = () => {
-    const data = deploymentData[selectedVersionId]
-    if (!data) return
-    setResult(data)
-    setActiveFilter('all')
+  const handleRun = async () => {
+    if (onRun) {
+      setIsLoading(true)
+      try {
+        const data = await onRun(selectedVersionId)
+        setResult(data)
+        setActiveFilter('all')
+        onRunComplete?.(data)
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      const data = deploymentData?.[selectedVersionId]
+      if (!data) return
+      setResult(data)
+      setActiveFilter('all')
+      onRunComplete?.(data)
+    }
   }
 
   const filteredTickets: TicketRow[] = result
@@ -47,13 +65,13 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
 
   return (
     <div>
-      {/* Config card */}
-      <div
+      {/* Config card — hidden in read-only (detail) mode */}
+      {!readOnly && <div
         className="rounded-[12px] p-5 mb-3"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         <div
-          className="text-[10px] font-semibold uppercase tracking-[0.06em] mb-[14px]"
+          className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-[14px]"
           style={{ color: 'var(--text-3)' }}
         >
           Configuration
@@ -62,7 +80,7 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
           <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
             AICP Jira Version{' '}
             <span
-              className="text-[10px] font-normal px-[6px] py-[1px] rounded-[6px]"
+              className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
               style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
             >
               Required
@@ -88,44 +106,52 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
             Issues are collected based on Jira Fix Version. PRs and merge status are cross-referenced from GitHub.
           </p>
         </div>
-      </div>
+      </div>}
 
-      {/* Run button */}
-      <div className="flex justify-end mb-6">
+      {/* Run button — hidden in read-only mode */}
+      {!readOnly && <div className="flex justify-end mb-6">
         <button
           type="button"
           data-testid="dt-run-btn"
           onClick={handleRun}
-          disabled={!selectedVersionId}
+          disabled={!selectedVersionId || isLoading}
           className="flex items-center gap-[6px] px-[22px] py-[10px] rounded-[8px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: 'var(--accent)' }}
         >
-          <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12">
-            <polygon points="4,2 14,8 4,14" />
-          </svg>
-          Run
+          {isLoading ? (
+            <svg viewBox="0 0 16 16" fill="none" stroke="#fff" strokeWidth="2" width="12" height="12" className="animate-spin">
+              <circle cx="8" cy="8" r="6" strokeOpacity="0.3" />
+              <path d="M8 2a6 6 0 0 1 6 6" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12">
+              <polygon points="4,2 14,8 4,14" />
+            </svg>
+          )}
+          {isLoading ? 'Running…' : 'Run'}
         </button>
-      </div>
+      </div>}
 
       {/* Results */}
       {result ? (
         <div data-testid="dt-results">
           <div
-            className="text-[10px] font-semibold uppercase tracking-[0.06em] mb-[9px]"
+            className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-[9px]"
             style={{ color: 'var(--text-3)' }}
           >
             {result.title} — Analysis
           </div>
 
           {/* Summary stat cards */}
-          <div className="grid grid-cols-3 gap-[10px] mb-5" data-testid="dt-stat-cards">
+          <div className="grid grid-cols-4 gap-[10px] mb-5" data-testid="dt-stat-cards">
             {[
-              { label: 'Total Jira Tickets',       value: result.stats.total,          color: 'var(--text-1)'  },
-              { label: 'Tickets with PR',           value: result.stats.withPR,         color: 'var(--teal)'   },
-              { label: 'Tickets without PR',        value: result.stats.noPR,           color: result.stats.noPR > 0 ? 'var(--coral)' : 'var(--text-3)' },
-              { label: 'Merged PRs',                value: result.stats.merged,         color: 'var(--teal)'   },
-              { label: 'Deployed (This Release)',   value: result.stats.deployedThis,   color: 'var(--accent)' },
-              { label: 'Deployed (Prev Release)',   value: result.stats.deployedPrev,   color: 'var(--amber)'  },
+              { label: 'Total Jira Tickets',       value: result.stats.total,                color: 'var(--text-1)'  },
+              { label: 'Tickets with PR',           value: result.stats.withPR,               color: 'var(--teal)'   },
+              { label: 'Tickets without PR',        value: result.stats.noPR,                 color: result.stats.noPR > 0 ? 'var(--coral)' : 'var(--text-3)' },
+              { label: 'Unregistered PRs',          value: result.unregisteredPRs.count,      color: result.unregisteredPRs.count > 0 ? 'var(--amber)' : 'var(--text-3)' },
+              { label: 'Merged PRs',                value: result.stats.merged,               color: 'var(--teal)'   },
+              { label: 'Deployed (This Release)',   value: result.stats.deployedThis,         color: 'var(--accent)' },
+              { label: 'Deployed (Prev Release)',   value: result.stats.deployedPrev,         color: 'var(--amber)'  },
             ].map(({ label, value, color }) => (
               <div
                 key={label}
@@ -133,7 +159,7 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div
-                  className="text-[10px] font-medium uppercase tracking-[0.05em] mb-[6px]"
+                  className="text-[11px] font-medium uppercase tracking-[0.05em] mb-[6px]"
                   style={{ color: 'var(--text-3)' }}
                 >
                   {label}
@@ -176,7 +202,7 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
             {result.noPRTickets.length > 0 ? (
               <div className="mt-2" data-testid="dt-no-pr-tickets">
                 <div
-                  className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-[5px]"
+                  className="text-[11px] font-semibold uppercase tracking-[0.05em] mb-[5px]"
                   style={{ color: 'var(--text-3)' }}
                 >
                   Tickets without PR
@@ -207,7 +233,7 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
             {result.unregisteredPRs.count > 0 && (
               <div className="mt-2" data-testid="dt-unregistered-prs">
                 <div
-                  className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-[5px]"
+                  className="text-[11px] font-semibold uppercase tracking-[0.05em] mb-[5px]"
                   style={{ color: 'var(--text-3)' }}
                 >
                   Version-unregistered PRs — {result.unregisteredPRs.count} total
@@ -244,7 +270,7 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
 
           {/* Ticket table */}
           <div
-            className="text-[10px] font-semibold uppercase tracking-[0.06em] mb-2"
+            className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-2"
             style={{ color: 'var(--text-3)' }}
           >
             Ticket Details
@@ -323,7 +349,7 @@ export function DeploymentForm({ versionOptions, deploymentData }: DeploymentFor
                       <td className="px-[14px] py-[9px]">
                         <span
                           data-testid={`ticket-status-${ticket.id}`}
-                          className="text-[10px] font-semibold px-[7px] py-[2px] rounded-[7px]"
+                          className="text-[11px] font-semibold px-[7px] py-[2px] rounded-[7px]"
                           style={{ background: statusCfg.bg, color: statusCfg.color }}
                         >
                           {statusCfg.label}
