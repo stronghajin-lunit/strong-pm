@@ -47,7 +47,8 @@ class TestPublishReleaseNote:
         result = await confluence.publish_release_note(
             "annotation",
             "AICP Monthly 26-04-01",
-            "# Highlights\n\nBig release.\n\n### New Features\n\n- **Cool thing** — does X. (RAD-1)",
+            "# Highlights\n\nBig release.\n\n### New Features\n\n"
+            "- **Cool thing** — does X. (RAD-1)",
             jira_version_id="10042",
         )
 
