@@ -12,6 +12,7 @@ interface SprintReportFormProps {
 export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportFormProps) {
   const [selectedSprintId, setSelectedSprintId] = useState('')
   const [confluenceUrl, setConfluenceUrl] = useState('')
+  const [spGoal, setSpGoal] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,12 +24,14 @@ export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportF
     setIsRunning(true)
     setError(null)
     try {
-      const record = await runSprintReport({
+      const payload: Parameters<typeof runSprintReport>[0] = {
         sprint_id: selectedSprint.sprintId,
         sprint_number: selectedSprint.sprintNumber,
         sprint_label: selectedSprint.label,
         confluence_page_url: confluenceUrl.trim(),
-      })
+      }
+      if (spGoal.trim()) payload.sp_goal = Number(spGoal)
+      const record = await runSprintReport(payload)
       onRunComplete?.(record)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -112,6 +115,33 @@ export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportF
             />
             <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
               Sprint Summary and Key Deliverables sections will be updated in-place.
+            </p>
+          </div>
+
+          {/* SP Goal */}
+          <div>
+            <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
+              SP Goal{' '}
+              <span className="text-[11px] font-normal" style={{ color: 'var(--text-3)' }}>
+                (optional)
+              </span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              data-testid="sp-goal-input"
+              value={spGoal}
+              onChange={(e) => setSpGoal(e.target.value)}
+              placeholder="e.g. 140"
+              className="w-[120px] rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-md)',
+                color: 'var(--text-1)',
+              }}
+            />
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+              Planned SP capacity. Shows Sprint Completion Rate above the table.
             </p>
           </div>
         </div>

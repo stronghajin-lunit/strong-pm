@@ -180,7 +180,18 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
     # Parse the two delimited sections from AI output
     sprint_summary_storage, key_deliverables_storage = _parse_sprint_report_sections(raw_output)
 
-    # ── 6. Update only Sprint Summary + Key Deliverables on the Confluence page
+    # ── 6. Prepend Sprint Completion Rate (if sp_goal provided) ────────────────
+    if body.sp_goal:
+        rate = round(total_sp / body.sp_goal * 100, 1)
+        completion_prefix = (
+            '<p><ac:structured-macro ac:name="status" ac:schema-version="1">'
+            '<ac:parameter ac:name="colour">Green</ac:parameter>'
+            '<ac:parameter ac:name="title">Sprint Completion Rate</ac:parameter>'
+            f"</ac:structured-macro> {rate}%</p>"
+        )
+        sprint_summary_storage = completion_prefix + sprint_summary_storage
+
+    # ── 7. Update only Sprint Summary + Key Deliverables on the Confluence page
     result = await confluence.update_sprint_report(
         page_id=page_id,
         sprint_summary_storage=sprint_summary_storage,

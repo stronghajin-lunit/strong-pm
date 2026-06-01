@@ -6,6 +6,7 @@ class SprintReportRunRequest(BaseModel):
     sprint_number: int
     sprint_label: str
     confluence_page_url: str  # URL of the Confluence page to update
+    sp_goal: int | None = None  # optional: enables Sprint Completion Rate display
 
 
 class SprintReportResponse(BaseModel):
