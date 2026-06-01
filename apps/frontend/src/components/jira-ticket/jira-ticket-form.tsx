@@ -1,16 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import type { JiraProduct, JiraTicketRunRecord, JiraTicketRunStatus, JiraTicketType } from '@/types/jira-ticket'
+import type { JiraProduct, JiraTicketRunRecord, JiraTicketType } from '@/types/jira-ticket'
+import { MOCK_JIRA_SPRINTS } from '@/mocks/jira-sprints'
 
 interface JiraTicketFormProps {
-  initialHistory: JiraTicketRunRecord[]
-}
-
-const STATUS_CONFIG: Record<JiraTicketRunStatus, { label: string; bg: string; color: string }> = {
-  running: { label: 'Running', bg: '#FAEEDA', color: '#854F0B' },
-  done:    { label: 'Done',    bg: '#E1F5EE', color: '#0F6E56' },
-  error:   { label: 'Error',   bg: '#FAECE7', color: '#993C1D' },
+  onRunComplete?: (record: JiraTicketRunRecord) => void
 }
 
 const TYPE_CONFIG: Record<JiraTicketType, { bg: string; color: string }> = {
@@ -20,15 +15,22 @@ const TYPE_CONFIG: Record<JiraTicketType, { bg: string; color: string }> = {
 
 const PRODUCTS: JiraProduct[] = ['ODM', 'Annotation Admin', 'Annotation Tool']
 
-export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
+export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
   const [product, setProduct]     = useState<JiraProduct | ''>('')
   const [feature, setFeature]     = useState('')
   const [dod, setDod]             = useState('')
   const [sprint, setSprint]       = useState('')
   const [type, setType]           = useState<JiraTicketType>('Task')
-  const [history, setHistory]     = useState<JiraTicketRunRecord[]>(initialHistory)
+  const [isRunning, setIsRunning] = useState(false)
 
-  const canRun = product !== '' && feature.trim() !== '' && dod.trim() !== '' && sprint.trim() !== ''
+  const sprintOptions = product !== '' ? MOCK_JIRA_SPRINTS[product] : []
+
+  const handleProductChange = (newProduct: JiraProduct | '') => {
+    setProduct(newProduct)
+    setSprint('')  // reset sprint when product changes
+  }
+
+  const canRun = product !== '' && feature.trim() !== '' && dod.trim() !== '' && sprint !== ''
 
   const handleRun = () => {
     if (!canRun || !product) return
@@ -36,27 +38,30 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
     const featureFirstLine = feature.trim().split('\n')[0].slice(0, 60)
     const summary = `${product} > ... > ${featureFirstLine}`
 
+    const selectedSprint = sprintOptions.find((s) => s.id === sprint)
+    const sprintLabel = selectedSprint?.label ?? sprint
+
     const newRecord: JiraTicketRunRecord = {
       id: `jt-${Date.now()}`,
       summary,
       product,
-      sprint: `Onco Sprint ${sprint.trim()}`,
+      sprint: sprintLabel,
       type,
       requestedAt: nowStr(),
       status: 'running',
       jiraUrl: null,
     }
 
-    setHistory((prev) => [newRecord, ...prev])
+    setIsRunning(true)
 
     setTimeout(() => {
-      setHistory((prev) =>
-        prev.map((r) =>
-          r.id === newRecord.id
-            ? { ...r, status: 'done', jiraUrl: 'https://lunit.atlassian.net/browse/RAD-0000' }
-            : r,
-        ),
-      )
+      const completedRecord: JiraTicketRunRecord = {
+        ...newRecord,
+        status: 'done',
+        jiraUrl: 'https://lunit.atlassian.net/browse/RAD-0000',
+      }
+      setIsRunning(false)
+      onRunComplete?.(completedRecord)
     }, 2500)
   }
 
@@ -68,7 +73,7 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         <div
-          className="text-[10px] font-semibold uppercase tracking-[0.06em] mb-[14px]"
+          className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-[14px]"
           style={{ color: 'var(--text-3)' }}
         >
           Configuration
@@ -82,7 +87,7 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
                 <select
                   data-testid="product-select"
                   value={product}
-                  onChange={(e) => setProduct(e.target.value as JiraProduct | '')}
+                  onChange={(e) => handleProductChange(e.target.value as JiraProduct | '')}
                   className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
                   style={{
                     background: 'var(--surface-2)',
@@ -102,7 +107,7 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
               <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
                 Type{' '}
                 <span
-                  className="text-[10px] font-normal px-[6px] py-[1px] rounded-[6px]"
+                  className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
                   style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
                 >
                   Required
@@ -128,33 +133,36 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
               </div>
             </div>
 
-            <div style={{ width: 120 }}>
-              <Field label="Sprint #" required>
-                <input
-                  type="number"
-                  data-testid="sprint-input"
+            <div style={{ width: 180 }}>
+              <Field label="Sprint" required>
+                <select
+                  data-testid="sprint-select"
                   value={sprint}
                   onChange={(e) => setSprint(e.target.value)}
-                  placeholder="77"
-                  min={1}
-                  className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
+                  disabled={product === ''}
+                  className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none disabled:opacity-50"
                   style={{
                     background: 'var(--surface-2)',
                     border: '1px solid var(--border-md)',
-                    color: 'var(--text-1)',
+                    color: sprint === '' ? 'var(--text-3)' : 'var(--text-1)',
                   }}
-                />
+                >
+                  <option value="">— Select sprint —</option>
+                  {sprintOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
               </Field>
             </div>
           </div>
 
           {/* Feature */}
-          <Field label="Feature Description" required hint="어떤 기능인지, 어떤 페이지에서 어떤 작업이 필요한지 설명하세요.">
+          <Field label="Feature Description" required hint="Describe what the feature does and what work is needed on which page.">
             <textarea
               data-testid="feature-input"
               value={feature}
               onChange={(e) => setFeature(e.target.value)}
-              placeholder="예) 블록 등록 폼에 라이선스 필드를 추가. 라이선스 목록은 드롭다운으로 선택하며, 선택한 값은 POST /api/v1/blocks에 license_id로 전달된다."
+              placeholder="e.g. Add a license field to the block registration form. License options are selectable via dropdown, and the selected value is sent to POST /api/v1/blocks as license_id."
               rows={3}
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none resize-none"
               style={{
@@ -166,12 +174,12 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
           </Field>
 
           {/* DoD */}
-          <Field label="Definition of Done" required hint="수동태 과거형으로 작성. 예) The license field is added to the block registration form.">
+          <Field label="Definition of Done" required hint="Write in passive past tense. e.g. The license field is added to the block registration form.">
             <textarea
               data-testid="dod-input"
               value={dod}
               onChange={(e) => setDod(e.target.value)}
-              placeholder="예) The license dropdown is displayed on the block registration form. The selected license_id is sent to POST /api/v1/blocks."
+              placeholder="e.g. The license dropdown is displayed on the block registration form. The selected license_id is sent to POST /api/v1/blocks."
               rows={3}
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none resize-none"
               style={{
@@ -185,124 +193,20 @@ export function JiraTicketForm({ initialHistory }: JiraTicketFormProps) {
       </div>
 
       {/* Run button */}
-      <div className="flex justify-end mb-7">
+      <div className="flex justify-end">
         <button
           type="button"
           data-testid="run-btn"
           onClick={handleRun}
-          disabled={!canRun}
+          disabled={!canRun || isRunning}
           className="flex items-center gap-[6px] px-[22px] py-[10px] rounded-[8px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: 'var(--accent)' }}
         >
           <svg viewBox="0 0 16 16" fill="#fff" width="12" height="12">
             <polygon points="4,2 14,8 4,14" />
           </svg>
-          Run
+          {isRunning ? 'Running...' : 'Run'}
         </button>
-      </div>
-
-      {/* Run History */}
-      <div
-        className="text-[10px] font-semibold uppercase tracking-[0.06em] mb-[9px]"
-        style={{ color: 'var(--text-3)' }}
-      >
-        Run History
-      </div>
-
-      <div
-        className="rounded-[12px] overflow-hidden"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <table className="w-full border-collapse">
-          <thead>
-            <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-              {['Summary', 'Sprint', 'Type', 'Requested', 'Status', 'Link'].map((col) => (
-                <th
-                  key={col}
-                  className="text-left px-[14px] py-2"
-                  style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {history.length === 0 ? (
-              <tr>
-                <td colSpan={6}>
-                  <div className="py-10 flex flex-col items-center gap-2">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" width="28" height="28" className="opacity-30" style={{ color: 'var(--text-3)' }}>
-                      <rect x="2" y="5" width="12" height="9" rx="1" />
-                      <path d="M2 9h12" />
-                      <path d="M5 5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V5" />
-                    </svg>
-                    <p className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>아직 실행 기록이 없습니다</p>
-                    <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>위 Run 버튼을 눌러 시작하세요.</p>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              history.map((record, idx) => {
-                const cfg = STATUS_CONFIG[record.status]
-                const typeCfg = TYPE_CONFIG[record.type]
-                return (
-                  <tr
-                    key={record.id}
-                    data-testid={`history-row-${record.id}`}
-                    className="transition-colors"
-                    style={idx < history.length - 1 ? { borderBottom: '1px solid var(--border)' } : undefined}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = '')}
-                  >
-                    <td className="px-[14px] py-[9px] text-[12px]" style={{ color: 'var(--text-2)', maxWidth: 300 }}>
-                      <span className="block truncate">{record.summary}</span>
-                    </td>
-                    <td className="px-[14px] py-[9px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-2)' }}>
-                      {record.sprint}
-                    </td>
-                    <td className="px-[14px] py-[9px]">
-                      <span
-                        className="text-[10px] font-semibold px-[7px] py-[2px] rounded-[7px]"
-                        style={{ background: typeCfg.bg, color: typeCfg.color }}
-                      >
-                        {record.type}
-                      </span>
-                    </td>
-                    <td className="px-[14px] py-[9px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
-                      {record.requestedAt}
-                    </td>
-                    <td className="px-[14px] py-[9px]">
-                      <span
-                        data-testid={`history-status-${record.id}`}
-                        className="text-[10px] font-semibold px-[7px] py-[2px] rounded-[7px]"
-                        style={{ background: cfg.bg, color: cfg.color }}
-                      >
-                        {cfg.label}
-                      </span>
-                    </td>
-                    <td className="px-[14px] py-[9px]">
-                      {record.jiraUrl ? (
-                        <a
-                          href={record.jiraUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          data-testid={`history-link-${record.id}`}
-                          className="text-[11px] underline cursor-pointer"
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          Jira ↗
-                        </a>
-                      ) : (
-                        <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
       </div>
     </div>
   )
@@ -322,7 +226,7 @@ function Field({ label, required, hint, children }: FieldProps) {
         {label}{' '}
         {required && (
           <span
-            className="text-[10px] font-normal px-[6px] py-[1px] rounded-[6px]"
+            className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
             style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
           >
             Required
