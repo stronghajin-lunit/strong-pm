@@ -1,19 +1,17 @@
-export interface SprintOption {
-  id: string
-  label: string
-  projectName: string
-  status: 'active' | 'done'
-}
-
 export type RunStatus = 'running' | 'done' | 'error'
+
+export interface SprintOption {
+  sprintId: number
+  sprintNumber: number
+  label: string
+  status: 'active' | 'closed'
+}
 
 export interface SprintRunRecord {
   id: string
   sprintLabel: string
-  projectName: string
   requestedAt: string
   completedAt?: string
   status: RunStatus
   confluenceUrl: string | null
-  reflection?: string
 }
