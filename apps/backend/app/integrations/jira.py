@@ -506,12 +506,13 @@ async def fetch_unversioned_tickets(
     project_key: str,
     period: str,
 ) -> list[UnversionedTicketData]:
-    """Return non-Epic tickets with no fix version, updated within the given period."""
+    """Return non-Epic tickets with no fix version."""
     jql_period = _PERIOD_JQL_MAP.get(period, "30d")
     jql = (
-        f'project = "{project_key}" AND fixVersion is EMPTY '
-        f'AND issuetype not in (Epic, "Sub-task", Subtask) '
-        f"AND updated >= -{jql_period} ORDER BY updated DESC"
+        f"project = {project_key} AND fixVersion is EMPTY "
+        f"AND issuetype != Epic "
+        f"AND updated >= -{jql_period} "
+        f"ORDER BY created DESC"
     )
     tickets: list[UnversionedTicketData] = []
     start_at = 0
