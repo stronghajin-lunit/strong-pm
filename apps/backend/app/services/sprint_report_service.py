@@ -27,6 +27,23 @@ from app.utils.sprint_config import (
 )
 
 
+def _parse_sprint_report_sections(raw: str) -> tuple[str, str]:
+    """Split AI output into (sprint_summary_storage, key_deliverables_storage)."""
+    summary_marker = "=== SPRINT_SUMMARY ==="
+    deliverables_marker = "=== KEY_DELIVERABLES ==="
+
+    s_start = raw.find(summary_marker)
+    d_start = raw.find(deliverables_marker)
+
+    if s_start == -1 or d_start == -1:
+        # Fallback: treat entire output as sprint summary
+        return raw.strip(), ""
+
+    summary_content = raw[s_start + len(summary_marker):d_start].strip()
+    deliverables_content = raw[d_start + len(deliverables_marker):].strip()
+    return summary_content, deliverables_content
+
+
 def _make_sr_id(db_id: int) -> str:
     return f"sr-{db_id}"
 
@@ -150,8 +167,8 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
         except Exception:
             pass  # non-fatal: proceed without example
 
-    # ── 5. Generate report via AI ───────────────────────────────────────────
-    content_storage = await ai.generate_sprint_report(
+    # ── 5. Generate two sections via AI ────────────────────────────────────
+    raw_output = await ai.generate_sprint_report(
         sprint_label=body.sprint_label,
         week_number=week_number,
         grouped_data=grouped_data,
@@ -159,10 +176,14 @@ async def run(db: AsyncSession, body: SprintReportRunRequest) -> SprintReportRes
         example_page_storage=example_storage,
     )
 
-    # ── 6. Update existing Confluence page ─────────────────────────────────
+    # Parse the two delimited sections from AI output
+    sprint_summary_storage, key_deliverables_storage = _parse_sprint_report_sections(raw_output)
+
+    # ── 6. Update only Sprint Summary + Key Deliverables on the Confluence page
     result = await confluence.update_sprint_report(
         page_id=page_id,
-        content_storage=content_storage,
+        sprint_summary_storage=sprint_summary_storage,
+        key_deliverables_storage=key_deliverables_storage,
     )
 
     # ── 7. Save run record ──────────────────────────────────────────────────

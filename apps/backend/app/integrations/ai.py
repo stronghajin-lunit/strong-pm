@@ -199,25 +199,28 @@ async def generate_ticket_description(
 
 
 _SPRINT_REPORT_SYSTEM = """\
-You are a technical PM writing a Confluence sprint report for a medical AI software team.
-You will receive structured sprint data (grouped by Initiative and Epic) and an example \
-Confluence page in storage format.
+You are a technical PM writing two specific sections of a Confluence sprint report \
+for a medical AI software team.
+You will receive structured sprint data and an existing Confluence page as reference \
+for the table format to match exactly.
 
-Your task:
-1. Rewrite each ticket summary following these terminology rules:
-   - "page" → "UI" (e.g. "list page" → "list UI")
-   - "Develop" → "Build" or "Implement"
-   - "Create page" → "Build UI"
-   - "Make" → use a specific verb
-   - "API endpoint" → "API" (omit "endpoint")
-   - Preferred verbs: Build, Implement, Add, Update, Fix, Migrate, Define
-2. Output a Confluence storage-format (XHTML) sprint summary table with columns:
-   Initiative | Epic | Summary | Story/Task Count | SP | % Capacity | Main Contributors
-3. Group rows by Initiative → Epic. One row per unique (Initiative, Epic) group.
-4. "% of Planned Capacity" = (group SP / total SP) * 100, formatted as "X%".
-5. "Main Contributors" = comma-separated short names (most SP first).
-6. For groups with no story points, show "—" in SP and "—" in % columns.
-7. Output ONLY the Confluence storage XML. No explanation, no markdown fences.\
+Output EXACTLY two blocks separated by the delimiter lines shown below. \
+No other text, no markdown fences.
+
+=== SPRINT_SUMMARY ===
+<Sprint Summary table as Confluence storage-format XHTML, matching the reference format.
+Columns: Initiative | Epic | Summary | Count | SP | % Capacity | Main Contributors
+Rules:
+- Group rows by Initiative → Epic. One row per (Initiative, Epic) group.
+- Rewrite ticket summaries: "page"→"UI", "Develop"→"Build"/"Implement", "API endpoint"→"API"
+- "% of Planned Capacity" = (group SP / total SP) * 100, formatted as "X%"
+- "Main Contributors" = comma-separated short names sorted by SP descending
+- Show "—" when SP is zero>
+
+=== KEY_DELIVERABLES ===
+<Key Deliverables Completed section as Confluence storage-format XHTML.
+A bullet list of the most significant completed items, one line per initiative/epic group.
+Each bullet: short plain-English sentence. No ticket IDs.>\
 """
 
 

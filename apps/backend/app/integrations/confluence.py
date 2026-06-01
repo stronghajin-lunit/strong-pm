@@ -193,6 +193,37 @@ async def _resolve_space_id(space_key: str) -> str:
     return str(results[0]["id"])
 
 
+def replace_section(storage: str, section_title: str, new_content: str) -> str:
+    """Replace a section's body in Confluence storage XML.
+
+    Finds the heading element whose text contains section_title (any h1-h6 level),
+    then replaces everything from after that heading up to the next heading of
+    equal or higher rank (lower number). Other sections are left untouched.
+    """
+    pattern = re.compile(
+        r"(<h([1-6])[^>]*>[^<]*"
+        + re.escape(section_title)
+        + r"[^<]*</h\2>)",
+        re.IGNORECASE,
+    )
+    m = pattern.search(storage)
+    if not m:
+        return storage
+
+    heading_end = m.end()
+    heading_level = int(m.group(2))
+
+    # Find next heading of same or higher rank (h1..hN where N <= heading_level)
+    next_pattern = re.compile(
+        r"<h([1-" + str(heading_level) + r"])[^>]*>",
+        re.IGNORECASE,
+    )
+    next_m = next_pattern.search(storage, heading_end)
+    section_end = next_m.start() if next_m else len(storage)
+
+    return storage[:heading_end] + new_content + storage[section_end:]
+
+
 def extract_page_id_from_url(url: str) -> str:
     """Extract Confluence page ID from a URL.
 
@@ -226,30 +257,40 @@ async def fetch_page_storage(page_id: str) -> str:
 
 async def update_sprint_report(
     page_id: str,
-    content_storage: str,
+    sprint_summary_storage: str,
+    key_deliverables_storage: str,
 ) -> ConfluencePublishResult:
-    """Update an existing Confluence page with sprint report content.
+    """Update only 'Sprint Summary' and 'Key Deliverables Completed' sections.
 
-    Fetches the current page version, increments it, and PUTs the new content.
+    Fetches the existing page, replaces only those two sections in-place,
+    and PUTs the merged result. All other sections remain unchanged.
     """
     _require_config()
 
-    # Fetch current page metadata (title + version)
+    # Fetch current page (metadata + body)
     try:
-        get_resp = await _get_client().get(f"/api/v2/pages/{page_id}")
+        get_resp = await _get_client().get(
+            f"/api/v2/pages/{page_id}",
+            params={"body-format": "storage"},
+        )
     except httpx.HTTPError as exc:
         raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
     page_data = _ensure_ok(get_resp)
 
     current_version: int = (page_data.get("version") or {}).get("number", 1)
     title: str = str(page_data.get("title", "Sprint Report"))
+    existing_storage: str = (page_data.get("body") or {}).get("storage", {}).get("value", "")
+
+    # Replace only the two target sections
+    updated = replace_section(existing_storage, "Sprint Summary", sprint_summary_storage)
+    updated = replace_section(updated, "Key Deliverables Completed", key_deliverables_storage)
 
     payload = {
         "id": page_id,
         "status": "current",
         "title": title,
         "version": {"number": current_version + 1},
-        "body": {"representation": "storage", "value": content_storage},
+        "body": {"representation": "storage", "value": updated},
     }
     try:
         put_resp = await _get_client().put(f"/api/v2/pages/{page_id}", json=payload)
