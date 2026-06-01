@@ -176,22 +176,12 @@ def stub_sprint_report(monkeypatch: pytest.MonkeyPatch) -> None:
         sprint_label: str,
         week_number: int,
         grouped_data: list[dict],
-        total_count: int,
         total_sp: float,
-        done_sp: float,
-        sp_goal: int | None,
         example_page_storage: str,
     ) -> str:
         return "<table><tbody><tr><td>Core Platform</td><td>TMA Module</td></tr></tbody></table>"
 
-    async def _update_sprint_report(
-        page_id: str,
-        sprint_data_rows: str,
-        total_count: int,
-        total_sp: float,
-        completion_prefix: str,
-        key_deliverables_storage: str,
-    ) -> object:
+    async def _update_sprint_report(page_id: str, content_storage: str) -> object:
         from app.integrations.confluence import ConfluencePublishResult
         return ConfluencePublishResult(
             confluence_location="AIP / Week19 Sprint 80 Report",

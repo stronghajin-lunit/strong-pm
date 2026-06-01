@@ -69,7 +69,6 @@ export interface RunSprintReportPayload {
   sprint_number: number
   sprint_label: string
   confluence_page_url: string
-  sp_goal?: number
 }
 
 export async function runSprintReport(payload: RunSprintReportPayload): Promise<SprintRunRecord> {

@@ -33,9 +33,6 @@ _INITIATIVE_PATTERNS: list[tuple[str, str]] = [
 # Dropped statuses (excluded from summary)
 _DROPPED_STATUSES: set[str] = {"dropped"}
 
-# Done statuses (used for completion rate calculation)
-_DONE_STATUSES: set[str] = {"done", "closed", "resolved", "complete", "completed"}
-
 # Initiative regex: strip leading [...]
 _INITIATIVE_RE = re.compile(r"\[.*?\]\s*(.+)")
 
@@ -106,7 +103,3 @@ def classify_initiative_from_summary(summary: str) -> str:
 
 def is_dropped(status: str) -> bool:
     return status.lower() in _DROPPED_STATUSES
-
-
-def is_done(status: str) -> bool:
-    return status.lower() in _DONE_STATUSES
