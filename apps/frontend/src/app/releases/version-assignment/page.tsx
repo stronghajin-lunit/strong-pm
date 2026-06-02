@@ -134,6 +134,12 @@ export default function VersionAssignmentPage() {
     })
   }
 
+  const handleRemoveSelected = () => {
+    setTickets((prev) => prev.filter((t) => !selectedIds.has(t.id)))
+    setSelectedIds(new Set())
+    setFailedIds(new Set())
+  }
+
   const handleConfirm = async () => {
     if (!selectedVersion) return
     setShowModal(false)
@@ -317,6 +323,21 @@ export default function VersionAssignmentPage() {
             <option key={v.id} value={v.id}>{v.name}</option>
           ))}
         </select>
+
+        {/* Remove from list button — visible when tickets are selected */}
+        {selectedIds.size > 0 && (
+          <button
+            type="button"
+            onClick={handleRemoveSelected}
+            className="flex items-center gap-[5px] px-[14px] py-[7px] rounded-[8px] text-[12px] font-semibold transition-opacity hover:opacity-80 shrink-0"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-md)', color: 'var(--text-2)' }}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9" />
+            </svg>
+            Remove from list
+          </button>
+        )}
 
         {/* Apply button */}
         <button
