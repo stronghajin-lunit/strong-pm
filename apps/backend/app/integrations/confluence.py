@@ -243,7 +243,20 @@ def _find_table_outside_expand(section_html: str) -> tuple[int, int] | None:
 
 
 def _replace_p_text(cell_html: str, new_text: str) -> str:
-    """Replace text inside the first <p> in a cell, preserving all tag attributes."""
+    """Replace text inside the first <p> in a cell, preserving all tag attributes.
+
+    Handles both regular <p>...</p> and self-closing <p ... /> (empty paragraphs).
+    """
+    # Self-closing <p ... /> → convert to <p ...>new_text</p>
+    result = re.sub(
+        r"(<p\b[^>]*)/\s*>",
+        lambda m: f"{m.group(1)}>{new_text}</p>",
+        cell_html,
+        count=1,
+    )
+    if result != cell_html:
+        return result
+    # Regular <p>...</p>
     return re.sub(
         r"(<p[^>]*>).*?(</p>)",
         lambda m: f"{m.group(1)}{new_text}{m.group(2)}",
