@@ -388,6 +388,69 @@ async def update_feature_list_page(
     )
 
 
+def update_scope_table(
+    storage: str,
+    in_scope_content: str,
+    out_of_scope_content: str,
+) -> str:
+    """Replace content in the In Scope / Out of Scope two-column table under <h2>Scope</h2>."""
+    # Find Scope section
+    scope_coords = _find_section_content(storage, "Scope")
+    if not scope_coords:
+        return storage
+    s, e = scope_coords
+    section = storage[s:e]
+
+    _tbl = re.compile(r"<table\b[^>]*>.*?</table>", re.DOTALL | re.IGNORECASE)
+    _tbody = re.compile(r"(<tbody>)(.*?)(</tbody>)", re.DOTALL | re.IGNORECASE)
+    _row = re.compile(r"<tr\b[^>]*>.*?</tr>", re.DOTALL | re.IGNORECASE)
+
+    # Find the table
+    table_m = _tbl.search(section)
+    if not table_m:
+        return storage
+
+    table_html = table_m.group(0)
+    tbody_m = _tbody.search(table_html)
+    if not tbody_m:
+        return storage
+
+    tbody_content = tbody_m.group(2)
+    rows = _row.findall(tbody_content)
+    if len(rows) < 2:
+        return storage
+
+    # Detect column order from header row
+    header_row = rows[0]
+    header_cells = re.findall(r"<t[hd][^>]*>.*?</t[hd]>", header_row, re.DOTALL | re.IGNORECASE)
+    in_scope_col, out_of_scope_col = 0, 1  # default
+    for i, cell in enumerate(header_cells):
+        text = re.sub(r"<[^>]+>", "", cell).strip().lower()
+        if "in scope" in text:
+            in_scope_col = i
+        elif "out of scope" in text:
+            out_of_scope_col = i
+
+    # Find the first data row (non-header)
+    data_row = rows[1]
+    data_cells = list(re.finditer(r"<td[^>]*>.*?</td>", data_row, re.DOTALL | re.IGNORECASE))
+    if len(data_cells) < 2:
+        return storage
+
+    new_data_row = data_row
+    scope_pairs = [(in_scope_col, in_scope_content), (out_of_scope_col, out_of_scope_content)]
+    for col_idx, new_text in scope_pairs:
+        if col_idx < len(data_cells):
+            old_cell = data_cells[col_idx].group(0)
+            new_cell = _replace_p_text(old_cell, new_text)
+            new_data_row = new_data_row.replace(old_cell, new_cell, 1)
+
+    new_tbody_content = tbody_m.group(1) + header_row + new_data_row + tbody_m.group(3)  # noqa: E501
+    new_table = table_html.replace(tbody_m.group(0), new_tbody_content)
+    new_section = section.replace(table_m.group(0), new_table, 1)
+    return storage[:s] + new_section + storage[e:]
+
+
 def replace_section(storage: str, section_title: str, new_content: str) -> str:
     """Replace a section's body in Confluence storage XML.
 

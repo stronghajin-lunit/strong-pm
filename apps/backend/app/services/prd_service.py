@@ -20,7 +20,11 @@ from app.crud import prd_run as prd_run_crud
 from app.crud import project as project_crud
 from app.integrations import ai, confluence
 from app.integrations.ai import AIIntegrationError
-from app.integrations.confluence import ConfluenceIntegrationError, extract_page_id_from_url
+from app.integrations.confluence import (
+    ConfluenceIntegrationError,
+    extract_page_id_from_url,
+    update_scope_table,
+)
 from app.models.prd_run import PrdRun
 from app.schemas.prd import (
     PrdRunListResponse,
@@ -152,6 +156,18 @@ async def run_prd(db: AsyncSession, body: PrdRunRequest) -> PrdRunResponse:
 
         # Replace each section in the existing page
         updated = existing_storage
+
+        # In Scope / Out of Scope live inside a 2-column table under <h2>Scope</h2>
+        in_scope = sections.pop("In Scope", None)
+        out_of_scope = sections.pop("Out of Scope", None)
+        if in_scope is not None or out_of_scope is not None:
+            updated = update_scope_table(
+                updated,
+                in_scope_content=in_scope or "",
+                out_of_scope_content=out_of_scope or "",
+            )
+
+        # Remaining sections use heading-based replacement
         for section_title, content in sections.items():
             updated = confluence.replace_section(updated, section_title, f"\n{content}\n")
 
