@@ -9,6 +9,8 @@ import { WorkflowStepper } from '@/components/projects/workflow-stepper'
 import { MOCK_PRS } from '@/mocks/prs'
 import { syncProjectContext, fetchProjectContext } from '@/api/projects'
 import type { ProjectContext } from '@/api/projects'
+import { fetchPrdRuns } from '@/api/prd'
+import type { PrdRunRecord } from '@/types/prd'
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,6 +26,7 @@ export default function ProjectDetailPage() {
   const [showDoneModal, setShowDoneModal] = useState(false)
   const [context, setContext] = useState<ProjectContext | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [prdRuns, setPrdRuns] = useState<PrdRunRecord[]>([])
 
   useEffect(() => {
     setTopbarTitle(project?.name ?? 'Project')
@@ -32,6 +35,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (id) {
       void fetchProjectContext(id).then(setContext).catch(() => null)
+      void fetchPrdRuns().then((runs) => setPrdRuns(runs.filter((r) => r.projectId === id))).catch(() => null)
     }
   }, [id])
 
@@ -53,7 +57,6 @@ export default function ProjectDetailPage() {
   }
 
   const linkedPrs = MOCK_PRS.filter((pr) => pr.linkedProjectId === id)
-  const prdRecords: never[] = []
 
   const handleAdvance = () => { void advanceWorkflowStep(id) }
   const handleMarkDone = () => setShowDoneModal(true)
@@ -188,7 +191,7 @@ export default function ProjectDetailPage() {
         />
       </div>
 
-      <StepContent step={selectedStep} isDone={isDone} project={project} linkedPrs={linkedPrs} prdRecords={prdRecords} />
+      <StepContent step={selectedStep} isDone={isDone} project={project} linkedPrs={linkedPrs} prdRecords={prdRuns} />
 
       {showDoneModal && (
         <DoneModal
@@ -205,7 +208,6 @@ export default function ProjectDetailPage() {
 
 import type { Project } from '@/types/project'
 import type { PullRequest } from '@/types/pr'
-import type { PrdRunRecord } from '@/types/prd'
 
 interface StepContentProps {
   step: number
