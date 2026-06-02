@@ -198,6 +198,61 @@ async def generate_ticket_description(
     return body
 
 
+_PROJECT_CONTEXT_SYSTEM = (
+    "You are a technical PM assistant. You will receive the content of one or more "
+    "Confluence pages belonging to a software project.\n"
+    "\n"
+    "Summarise the project into a concise context block that another AI can use "
+    "to understand the project. Cover:\n"
+    "- Purpose and background\n"
+    "- Key requirements and goals\n"
+    "- Architecture or technical decisions (if present)\n"
+    "- Current status or progress\n"
+    "- Important constraints or risks\n"
+    "\n"
+    "Write in English. Be specific and engineer-facing. "
+    "Max 600 words. Plain text only — no Markdown headers or bullet markers."
+)
+
+
+async def summarize_project_context(
+    project_name: str,
+    pages: list[dict[str, str]],
+) -> str:
+    """Summarise all Confluence pages into a single project context string."""
+    client = _get_client()
+
+    pages_text = "\n\n".join(
+        f"=== {p['title']} ===\n{p['content']}" for p in pages if p.get("content")
+    )
+    if not pages_text.strip():
+        raise AIIntegrationError("No page content to summarise")
+
+    user_content = f"Project: {project_name}\n\nConfluence pages:\n\n{pages_text}"
+
+    try:
+        response = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=1024,
+            thinking={"type": "disabled"},
+            system=[
+                {
+                    "type": "text",
+                    "text": _PROJECT_CONTEXT_SYSTEM,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    result = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not result:
+        raise AIIntegrationError("Anthropic returned empty project context")
+    return result
+
+
 _SPRINT_REPORT_SYSTEM = """\
 You are a technical PM writing two specific sections of a Confluence sprint report \
 for a medical AI software team.

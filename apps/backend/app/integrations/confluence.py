@@ -242,6 +242,99 @@ def extract_page_id_from_url(url: str) -> str:
     raise ConfluenceIntegrationError(f"Could not extract page ID from URL: {url}")
 
 
+def _storage_to_text(storage_html: str) -> str:
+    """Extract readable plain text from Confluence storage-format XHTML."""
+    import html as _html
+    text = re.sub(r"<[^>]+>", " ", storage_html)
+    text = _html.unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+async def fetch_page_metadata(page_id: str) -> dict[str, str]:
+    """Return {id, title, updated_at} for a single Confluence page (no body)."""
+    try:
+        resp = await _get_client().get(f"/api/v2/pages/{page_id}")
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(resp)
+    updated_at: str = (data.get("version") or {}).get("createdAt", "")
+    return {
+        "id": str(data.get("id", page_id)),
+        "title": str(data.get("title", "")),
+        "updated_at": updated_at,
+    }
+
+
+async def fetch_page_text(page_id: str) -> tuple[str, str, str]:
+    """Return (title, plain_text, updated_at) for a page."""
+    try:
+        resp = await _get_client().get(
+            f"/api/v2/pages/{page_id}", params={"body-format": "storage"}
+        )
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(resp)
+    title = str(data.get("title", ""))
+    updated_at: str = (data.get("version") or {}).get("createdAt", "")
+    storage_val: str = (data.get("body") or {}).get("storage", {}).get("value", "")
+    return title, _storage_to_text(storage_val), updated_at
+
+
+async def _collect_child_page_ids(page_id: str, depth: int = 0) -> list[str]:
+    """Recursively collect all descendant page IDs (BFS, max depth 6)."""
+    if depth > 6:
+        return []
+    ids: list[str] = []
+    cursor: str | None = None
+    while True:
+        params: dict[str, str | int] = {"limit": 50}
+        if cursor:
+            params["cursor"] = cursor
+        try:
+            resp = await _get_client().get(
+                f"/api/v2/pages/{page_id}/children", params=params
+            )
+        except httpx.HTTPError as exc:
+            raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+        data = _ensure_ok(resp)
+        results: list[dict] = data.get("results", [])
+        for child in results:
+            child_id = str(child["id"])
+            ids.append(child_id)
+            ids.extend(await _collect_child_page_ids(child_id, depth + 1))
+        next_link: str = (data.get("_links") or {}).get("next", "")
+        if not next_link:
+            break
+        # Extract cursor from next link query string
+        import urllib.parse as _up
+        qs = _up.parse_qs(_up.urlparse(next_link).query)
+        cursor = qs.get("cursor", [None])[0]
+        if not cursor:
+            break
+    return ids
+
+
+async def fetch_all_project_pages(
+    root_page_id: str,
+) -> list[dict[str, str]]:
+    """Fetch root page + all descendants.
+
+    Returns list of {id, title, content (plain text), updated_at}.
+    """
+    all_ids = [root_page_id] + await _collect_child_page_ids(root_page_id)
+    pages: list[dict[str, str]] = []
+    for pid in all_ids:
+        try:
+            title, content, updated_at = await fetch_page_text(pid)
+            pages.append(
+                {"id": pid, "title": title, "content": content, "updated_at": updated_at}
+            )
+        except ConfluenceIntegrationError:
+            continue  # skip inaccessible pages
+    return pages
+
+
 async def fetch_page_storage(page_id: str) -> str:
     """Return Confluence page body in storage format (for few-shot reference)."""
     try:

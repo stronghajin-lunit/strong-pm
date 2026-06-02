@@ -5,6 +5,8 @@ from app.api.v1.endpoints import (
     health,
     jira_tickets,
     jira_versions,
+    products,
+    projects,
     release_notes,
     sprint_reports,
     version_assignment,
@@ -21,3 +23,5 @@ api_router.include_router(sprint_reports.router, prefix="/sprint-reports", tags=
 api_router.include_router(
     version_assignment.router, prefix="/version-assignment", tags=["version-assignment"]
 )
+api_router.include_router(products.router, prefix="/products", tags=["products"])
+api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
