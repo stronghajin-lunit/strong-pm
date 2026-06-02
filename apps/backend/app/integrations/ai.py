@@ -198,6 +198,91 @@ async def generate_ticket_description(
     return body
 
 
+_PRD_SYSTEM = """\
+You are a senior technical PM writing a PRD for a medical AI software team.
+You will receive:
+- Kickoff document content (source of truth)
+- Project context (Confluence summary)
+- Repo context (tech stack and key terms)
+- Target team and their responsibilities
+
+Fill in the following PRD sections with well-structured content.
+Output EXACTLY the section delimiters and content as shown below.
+Do NOT change section names. Do NOT add extra sections.
+
+Terminology rules:
+- "page" → "UI" (e.g. "list UI", "detail UI")
+- "Develop" → "Build" or "Implement"
+- "API endpoint" → "API"
+- "AICP" → "Annotation Admin"
+
+=== Background ===
+<2-3 sentences. Why this feature is needed, based on kickoff content.>
+
+=== Goal ===
+<Bullet list of 2-4 concrete goals extracted from kickoff.>
+
+=== In Scope ===
+<Bullet list of what IS included in this PRD.>
+
+=== Out of Scope ===
+<Bullet list of what is explicitly NOT included.>
+
+=== Target User ===
+<A Confluence storage-format table with two columns: User/Team | Description.
+One row per relevant team. Use the provided team descriptions.>
+
+=== User Story ===
+<3-7 user stories in format: "As a [role], I want/need to [action] so that I can [outcome].">
+
+=== Requirements ===
+<Key functional requirements only. Format each as:
+[MUST HAVE / SHOULD HAVE / NICE TO HAVE] Requirement — Acceptance criteria.
+Focus on the most important ones; do not pad.>
+
+=== Appendix. Terminology ===
+<A Confluence storage-format table with two columns: Term | Definition.
+Include technical terms from the repo context relevant to this feature.>\
+"""
+
+
+async def generate_prd_sections(
+    project_name: str,
+    target_team_label: str,
+    target_team_description: str,
+    kickoff_content: str,
+    project_context: str,
+    repo_context: str,
+) -> str:
+    """Generate PRD section content from kickoff + project context + repo index."""
+    client = _get_client()
+
+    user_content = (
+        f"Project: {project_name}\n"
+        f"Target Team: {target_team_label}\n"
+        f"Team responsibilities: {target_team_description}\n\n"
+        f"=== Kickoff Document ===\n{kickoff_content[:6000]}\n\n"
+        f"=== Project Context ===\n{project_context[:2000]}\n\n"
+        f"=== Repo Context ===\n{repo_context[:2000]}"
+    )
+
+    try:
+        response = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=4096,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": _PRD_SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    result = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not result:
+        raise AIIntegrationError("Anthropic returned empty PRD content")
+    return result
+
+
 _PROJECT_CONTEXT_SYSTEM = (
     "You are a technical PM assistant. You will receive the content of one or more "
     "Confluence pages belonging to a software project.\n"

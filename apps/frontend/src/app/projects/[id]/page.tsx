@@ -7,7 +7,6 @@ import { useUIStore } from '@/stores/ui-store'
 import { Badge } from '@/components/ui/badge'
 import { WorkflowStepper } from '@/components/projects/workflow-stepper'
 import { MOCK_PRS } from '@/mocks/prs'
-import { MOCK_PRD_HISTORY } from '@/mocks/prd'
 import { syncProjectContext, fetchProjectContext } from '@/api/projects'
 import type { ProjectContext } from '@/api/projects'
 
@@ -47,7 +46,7 @@ export default function ProjectDetailPage() {
   const currentStep = project.workflowStep ?? 1
   const isDone = project.status === 'done'
   const linkedPrs = MOCK_PRS.filter((pr) => pr.linkedProjectId === id)
-  const prdRecords = MOCK_PRD_HISTORY.filter((r) => r.projectId === id)
+  const prdRecords: never[] = []  // PRD history is managed in PRD Writer page
 
   const [selectedStep, setSelectedStep] = useState(isDone ? 5 : currentStep)
 

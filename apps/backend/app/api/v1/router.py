@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     health,
     jira_tickets,
     jira_versions,
+    prd,
     products,
     projects,
     release_notes,
@@ -25,3 +26,4 @@ api_router.include_router(
 )
 api_router.include_router(products.router, prefix="/products", tags=["products"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
+api_router.include_router(prd.router, prefix="/prd", tags=["prd"])
