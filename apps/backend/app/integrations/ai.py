@@ -309,10 +309,13 @@ Terminology rules:
 <Bullet list of 2-4 concrete goals extracted from kickoff.>
 
 === In Scope ===
-<Bullet list of what IS included in this PRD.>
+<3-6 high-level bullet points copied or lightly paraphrased directly from the kickoff's \
+scope section. Keep the same level of detail as the kickoff — short phrases, not sentences. \
+Do NOT elaborate or add context beyond what the kickoff states.>
 
 === Out of Scope ===
-<Bullet list of what is explicitly NOT included.>
+<3-6 high-level bullet points copied or lightly paraphrased directly from the kickoff's \
+out-of-scope section. Same brevity as the kickoff. Do NOT elaborate.>
 
 === Target User ===
 <A Confluence storage-format table with two columns: User/Team | Description.
