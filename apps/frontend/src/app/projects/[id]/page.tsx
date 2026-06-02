@@ -35,24 +35,25 @@ export default function ProjectDetailPage() {
     }
   }, [id])
 
-  if (!project) {
-    return (
-      <div className="px-7 py-6">
-        <p style={{ color: 'var(--text-3)' }}>Project not found.</p>
-      </div>
-    )
-  }
-
-  const currentStep = project.workflowStep ?? 1
-  const isDone = project.status === 'done'
-  const linkedPrs = MOCK_PRS.filter((pr) => pr.linkedProjectId === id)
-  const prdRecords: never[] = []  // PRD history is managed in PRD Writer page
-
-  const [selectedStep, setSelectedStep] = useState(isDone ? 5 : currentStep)
+  // All hooks must be called before any early return
+  const currentStep = project?.workflowStep ?? 1
+  const isDone = project?.status === 'done'
+  const [selectedStep, setSelectedStep] = useState(1)
 
   useEffect(() => {
     setSelectedStep(isDone ? 5 : currentStep)
   }, [currentStep, isDone])
+
+  if (!project) {
+    return (
+      <div className="px-7 py-6">
+        <p style={{ color: 'var(--text-3)' }}>Loading...</p>
+      </div>
+    )
+  }
+
+  const linkedPrs = MOCK_PRS.filter((pr) => pr.linkedProjectId === id)
+  const prdRecords: never[] = []
 
   const handleAdvance = () => { void advanceWorkflowStep(id) }
   const handleMarkDone = () => setShowDoneModal(true)
