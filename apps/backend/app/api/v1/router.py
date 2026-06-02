@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     deployments,
+    feature_list,
     health,
     jira_tickets,
     jira_versions,
@@ -27,3 +28,4 @@ api_router.include_router(
 api_router.include_router(products.router, prefix="/products", tags=["products"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(prd.router, prefix="/prd", tags=["prd"])
+api_router.include_router(feature_list.router, prefix="/feature-list", tags=["feature-list"])

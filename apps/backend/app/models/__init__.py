@@ -1,4 +1,5 @@
 from app.models.deployment import Deployment, DeploymentRepo, DeploymentTicket  # noqa: F401
+from app.models.feature_list_run import FeatureListRun  # noqa: F401
 from app.models.prd_run import PrdRun  # noqa: F401
 from app.models.product import Product  # noqa: F401
 from app.models.project import Project, ProjectContext, ProjectProduct  # noqa: F401

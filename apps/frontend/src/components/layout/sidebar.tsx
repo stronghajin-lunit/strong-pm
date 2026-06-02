@@ -245,6 +245,19 @@ export function Sidebar() {
               </svg>
             </NavItem>
             <NavItem
+              href="/feature-list-writer"
+              label="Feature List Writer"
+              active={isActive('/feature-list-writer')}
+              sub
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="2" y="2" width="12" height="12" rx="1" />
+                <line x1="5" y1="6" x2="11" y2="6" />
+                <line x1="5" y1="9" x2="9" y2="9" />
+                <line x1="5" y1="12" x2="8" y2="12" />
+              </svg>
+            </NavItem>
+            <NavItem
               href="/jira-ticket-writer"
               label="Jira Ticket Writer"
               active={isActive('/jira-ticket-writer')}

@@ -198,6 +198,92 @@ async def generate_ticket_description(
     return body
 
 
+_FEATURE_LIST_SYSTEM = """\
+You are a senior technical PM creating a Feature List from PRD source documents.
+Output a single JSON object with this exact structure — no markdown fences, no explanation:
+{
+  "overview": {
+    "project_name": "...",
+    "system_function": "...",
+    "background": "1-2 sentence summary",
+    "goal": "1-2 sentence summary"
+  },
+  "features": [
+    {
+      "category": "Category Name",
+      "name": "Feature Name in Title Case",
+      "description": "Active present tense, user perspective, 1-2 sentences.",
+      "priority": "Must Have",
+      "complexity": "M",
+      "dependencies": "-",
+      "note": ""
+    }
+  ]
+}
+
+Feature rules:
+- Group by category; within each category sort Must Have → Should Have → Nice to Have.
+- Priority values: exactly "Must Have", "Should Have", or "Nice to Have".
+- Complexity: S = ≤3 SP simple CRUD; M = 5-8 SP multi-component+API; L = 13+ SP pipeline/integration.
+- Dependencies: use "F-NN" referencing the final sorted position. Use "-" if none.
+- Note: "[TBD - source unclear]" when uncertain; empty string otherwise.
+- Terminology: "page" → "UI", "API endpoint" → "API", "AICP" → "Annotation Admin".
+- Extract all meaningful features; do not pad with trivial items.\
+"""
+
+
+async def generate_feature_list(
+    project_name: str,
+    source_pages: list[dict[str, str]],
+    project_context: str,
+) -> dict:
+    """Generate Feature List overview + features from PRD source pages."""
+    import json as _json
+
+    client = _get_client()
+
+    pages_text = "\n\n".join(
+        f"=== {p['title']} ===\n{p['content'][:3000]}" for p in source_pages
+    )
+    user_content = (
+        f"Project: {project_name}\n\n"
+        f"=== Project Context ===\n{project_context[:1500]}\n\n"
+        f"=== PRD Source Pages ===\n{pages_text}"
+    )
+
+    try:
+        response = await client.messages.create(
+            model=settings.AI_MODEL,
+            max_tokens=4096,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": _FEATURE_LIST_SYSTEM,
+                     "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    raw = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not raw:
+        raise AIIntegrationError("Anthropic returned empty feature list")
+
+    try:
+        data = _json.loads(raw)
+    except _json.JSONDecodeError:
+        # Try to extract JSON from response if wrapped in text
+        import re as _re
+        m = _re.search(r"\{.*\}", raw, _re.DOTALL)
+        if not m:
+            raise AIIntegrationError("Could not parse feature list JSON from AI response")
+        data = _json.loads(m.group(0))
+
+    # Assign sequential IDs to features
+    for i, feat in enumerate(data.get("features", []), 1):
+        feat["id"] = f"F-{i:02d}"
+
+    return data
+
+
 _PRD_SYSTEM = """\
 You are a senior technical PM writing a PRD for a medical AI software team.
 You will receive:

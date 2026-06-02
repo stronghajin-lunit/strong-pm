@@ -8,6 +8,7 @@ for Jira (JIRA_BASE_URL/EMAIL/API_TOKEN); the Confluence API lives under the
 
 import html
 import re
+import uuid as _uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -191,6 +192,200 @@ async def _resolve_space_id(space_key: str) -> str:
     if not results:
         raise ConfluenceIntegrationError(f"Confluence space not found: {space_key}")
     return str(results[0]["id"])
+
+
+def _make_uuid() -> str:
+    return str(_uuid.uuid4())
+
+
+def _find_section_content(storage: str, heading_text: str) -> tuple[int, int] | None:
+    """Return (start, end) indices of content after the given heading, or None."""
+    pattern = re.compile(
+        r"<h([1-6])[^>]*>[^<]*" + re.escape(heading_text) + r"[^<]*</h\1>",
+        re.IGNORECASE,
+    )
+    m = pattern.search(storage)
+    if not m:
+        return None
+    level = int(m.group(1))
+    start = m.end()
+    next_m = re.search(
+        r"<h([1-" + str(level) + r"])[^>]*>", storage[start:], re.IGNORECASE
+    )
+    end = start + next_m.start() if next_m else len(storage)
+    return start, end
+
+
+def _find_table_outside_expand(section_html: str) -> tuple[int, int] | None:
+    """Find the first <table> that is NOT inside an ac:structured-macro expand."""
+    # Remove expand macros first, then find the table
+    no_expand = re.sub(
+        r'<ac:structured-macro[^>]*ac:name="expand"[^>]*>.*?</ac:structured-macro>',
+        "",
+        section_html,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    m = re.search(r"<table\b[^>]*>.*?</table>", no_expand, re.DOTALL | re.IGNORECASE)
+    if not m:
+        return None
+    # Search in original using the table open tag
+    table_open_re = re.compile(re.escape(m.group(0)[:40]), re.DOTALL)
+    orig_m = table_open_re.search(section_html)
+    if not orig_m:
+        return None
+    tbl_m = re.search(r"<table\b[^>]*>.*?</table>", section_html[orig_m.start():],
+                      re.DOTALL | re.IGNORECASE)
+    if not tbl_m:
+        return None
+    s = orig_m.start() + tbl_m.start()
+    e = s + len(tbl_m.group(0))
+    return s, e
+
+
+def _replace_p_text(cell_html: str, new_text: str) -> str:
+    """Replace text inside the first <p> in a cell, preserving all tag attributes."""
+    return re.sub(
+        r"(<p[^>]*>).*?(</p>)",
+        lambda m: f"{m.group(1)}{new_text}{m.group(2)}",
+        cell_html,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+
+def _build_priority_macro(priority: str) -> str:
+    from app.utils.feature_list_config import build_priority_macro
+    return build_priority_macro(priority)
+
+
+def _build_feature_row(feature: dict, show_category: bool) -> str:
+    """Build a Confluence storage <tr> for one feature."""
+    category = feature["category"] if show_category else ""
+    priority_cell = _build_priority_macro(feature["priority"])
+    cells = [
+        feature["id"],
+        category,
+        feature["name"],
+        feature["description"],
+        priority_cell,
+        feature["complexity"],
+        feature.get("dependencies", "-"),
+        feature.get("note", ""),
+    ]
+    tds = "".join(
+        f'<td ac:local-id="{_make_uuid()}"><p>{c}</p></td>' for c in cells
+    )
+    return f'<tr ac:local-id="{_make_uuid()}">{tds}</tr>'
+
+
+def _update_overview_table(storage: str, overview_data: dict[str, str]) -> str:
+    """Replace <p> text in Overview table value cells, preserving all attributes."""
+    from app.utils.feature_list_config import OVERVIEW_LABEL_MAP
+
+    coords = _find_section_content(storage, "Overview")
+    if not coords:
+        return storage
+    s, e = coords
+    section = storage[s:e]
+
+    rows = list(re.finditer(r"<tr\b[^>]*>(.*?)</tr>", section, re.DOTALL | re.IGNORECASE))
+    updated_section = section
+    for row_m in rows:
+        row_html = row_m.group(0)
+        cells = re.findall(r"<td\b[^>]*>.*?</td>", row_html, re.DOTALL | re.IGNORECASE)
+        if len(cells) < 2:
+            continue
+        label_text = re.sub(r"<[^>]+>", "", cells[0]).strip().lower()
+        field_key = OVERVIEW_LABEL_MAP.get(label_text)
+        if not field_key or field_key not in overview_data:
+            continue
+        new_value = overview_data[field_key]
+        new_value_cell = _replace_p_text(cells[1], new_value)
+        new_row = row_html.replace(cells[1], new_value_cell, 1)
+        updated_section = updated_section.replace(row_html, new_row, 1)
+
+    return storage[:s] + updated_section + storage[e:]
+
+
+def _update_feature_list_table(storage: str, features: list[dict]) -> str:
+    """Replace feature rows in the Feature List table (outside expand macros)."""
+    coords = _find_section_content(storage, "Feature List")
+    if not coords:
+        return storage
+    s, e = coords
+    section = storage[s:e]
+
+    tbl_coords = _find_table_outside_expand(section)
+    if not tbl_coords:
+        return storage
+    ts, te = tbl_coords
+    table_html = section[ts:te]
+
+    tbody_m = re.search(r"(<tbody>)(.*?)(</tbody>)", table_html, re.DOTALL | re.IGNORECASE)
+    if not tbody_m:
+        return storage
+
+    tbody_content = tbody_m.group(2)
+    all_rows = re.findall(r"<tr\b[^>]*>.*?</tr>", tbody_content, re.DOTALL | re.IGNORECASE)
+    header_rows = [r for r in all_rows if re.search(r"<th\b", r, re.IGNORECASE)]
+    if not header_rows:
+        header_rows = all_rows[:1]
+
+    # Build feature rows with category grouping
+    data_rows: list[str] = []
+    seen_category: str | None = None
+    for feat in features:
+        show_cat = feat["category"] != seen_category
+        if show_cat:
+            seen_category = feat["category"]
+        data_rows.append(_build_feature_row(feat, show_cat))
+
+    new_tbody = tbody_m.group(1) + "".join(header_rows) + "".join(data_rows) + tbody_m.group(3)
+    new_table = table_html.replace(tbody_m.group(0), new_tbody)
+    new_section = section[:ts] + new_table + section[te:]
+    return storage[:s] + new_section + storage[e:]
+
+
+async def update_feature_list_page(
+    page_id: str,
+    overview_data: dict[str, str],
+    features: list[dict],
+) -> ConfluencePublishResult:
+    """Update Overview table cells and Feature List table rows in place."""
+    _require_config()
+    try:
+        get_resp = await _get_client().get(
+            f"/api/v2/pages/{page_id}", params={"body-format": "storage"}
+        )
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    page_data = _ensure_ok(get_resp)
+
+    version: int = (page_data.get("version") or {}).get("number", 1)
+    title: str = str(page_data.get("title", "Feature List"))
+    existing: str = (page_data.get("body") or {}).get("storage", {}).get("value", "")
+
+    updated = _update_overview_table(existing, overview_data)
+    updated = _update_feature_list_table(updated, features)
+
+    payload = {
+        "id": page_id, "status": "current", "title": title,
+        "version": {"number": version + 1},
+        "body": {"representation": "storage", "value": updated},
+    }
+    try:
+        put_resp = await _get_client().put(f"/api/v2/pages/{page_id}", json=payload)
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(put_resp)
+
+    webui = str(data.get("_links", {}).get("webui", ""))
+    site = settings.JIRA_BASE_URL.rstrip("/")
+    confluence_url = f"{site}/wiki{webui}" if webui else f"{site}/wiki/pages/{page_id}"
+    return ConfluencePublishResult(
+        confluence_location=f"{settings.CONFLUENCE_SPACE_KEY} / {title}",
+        confluence_url=confluence_url,
+    )
 
 
 def replace_section(storage: str, section_title: str, new_content: str) -> str:
