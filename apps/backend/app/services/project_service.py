@@ -130,9 +130,9 @@ async def update_project(
     kwargs = {k: v for k, v in body.model_dump().items() if v is not None}
     await project_crud.update(db, project, **kwargs)
 
-    # Delete context when project is archived
+    # Archive: keep AI summary, discard raw page cache to free storage
     if body.status == "archived":
-        await project_crud.delete_context(db, pid)
+        await project_crud.clear_page_cache(db, pid)
 
     await db.commit()
     await db.refresh(project)

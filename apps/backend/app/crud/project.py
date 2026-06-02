@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project, ProjectContext, ProjectProduct
@@ -102,7 +102,9 @@ async def upsert_context(
     return ctx
 
 
-async def delete_context(db: AsyncSession, project_id: int) -> None:
-    await db.execute(
-        delete(ProjectContext).where(ProjectContext.project_id == project_id)
-    )
+async def clear_page_cache(db: AsyncSession, project_id: int) -> None:
+    """On archive: keep AI summary but discard raw page cache to free storage."""
+    ctx = await get_context(db, project_id)
+    if ctx:
+        ctx.page_cache = {}
+        await db.flush()
