@@ -5,11 +5,19 @@ import type { EpicGroup, JiraTicket } from '@/types/version-assignment'
 
 type TicketStatus = JiraTicket['status']
 
-const STATUS_CONFIG: Record<TicketStatus, { bg: string; color: string }> = {
-  'To Do':      { bg: '#F0F0F0', color: '#767676' },
-  'In Progress':{ bg: '#FAEEDA', color: '#854F0B' },
-  'In Review':  { bg: '#EFF6FF', color: '#1E40AF' },
-  'Done':       { bg: '#ECEAE6', color: '#9B9A97' },
+const _DEFAULT_STATUS_CFG = { bg: '#F0F0F0', color: '#767676' }
+
+const STATUS_CONFIG: Record<string, { bg: string; color: string }> = {
+  'To Do':       { bg: '#F0F0F0', color: '#767676' },
+  'In Progress': { bg: '#FAEEDA', color: '#854F0B' },
+  'In Review':   { bg: '#EFF6FF', color: '#1E40AF' },
+  'In Development': { bg: '#FAEEDA', color: '#854F0B' },
+  'Done':        { bg: '#ECEAE6', color: '#9B9A97' },
+  'Closed':      { bg: '#ECEAE6', color: '#9B9A97' },
+}
+
+function getStatusCfg(status: string) {
+  return STATUS_CONFIG[status] ?? _DEFAULT_STATUS_CFG
 }
 
 interface Props {
@@ -101,7 +109,7 @@ export function VersionAssignmentTable({ groups, selectedIds, failedIds, onToggl
     group.tickets.forEach((ticket, ti) => {
       const isLast = gi === groups.length - 1 && ti === group.tickets.length - 1
       const isFailed = failedIds.has(ticket.id)
-      const statusCfg = STATUS_CONFIG[ticket.status]
+      const statusCfg = getStatusCfg(ticket.status)
 
       rows.push(
         <tr
