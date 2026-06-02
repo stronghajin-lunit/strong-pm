@@ -236,9 +236,17 @@ One row per relevant team. Use the provided team descriptions.>
 <3-7 user stories in format: "As a [role], I want/need to [action] so that I can [outcome].">
 
 === Requirements ===
-<Key functional requirements only. Format each as:
-[MUST HAVE / SHOULD HAVE / NICE TO HAVE] Requirement — Acceptance criteria.
-Focus on the most important ones; do not pad.>
+<A Confluence storage-format table with 5 columns: \
+Requirement ID | Functional/Non-functional | Requirement | Priority | Acceptance Criteria.
+- Requirement ID: REQ-001, REQ-002, ...
+- Priority: use a Confluence Status macro:
+  MUST HAVE → <ac:structured-macro ac:name="status" ac:schema-version="1"><ac:parameter \
+ac:name="colour">Red</ac:parameter><ac:parameter ac:name="title">MUST HAVE\
+</ac:parameter></ac:structured-macro>
+  SHOULD HAVE → same macro with colour=Yellow and title=SHOULD HAVE
+  NICE TO HAVE → same macro with colour=Green and title=NICE TO HAVE
+- Include only key requirements. Do not pad.
+- Start with <table><tbody><tr><th>...</th></tr> header row, then data rows.>
 
 === Appendix. Terminology ===
 <A Confluence storage-format table with two columns: Term | Definition.
