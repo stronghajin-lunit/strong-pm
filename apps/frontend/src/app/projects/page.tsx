@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useProjects } from '@/hooks/use-projects'
+import { useProjectStore } from '@/stores/project-store'
 import { useUIStore } from '@/stores/ui-store'
 import { StatCard } from '@/components/projects/stat-card'
 import { NewProjectModal } from '@/components/projects/new-project-modal'
@@ -9,10 +10,12 @@ import { NewProjectModal } from '@/components/projects/new-project-modal'
 export default function ProjectsPage() {
   const { notStartedCount, planningCount, activeCount, doneCount } = useProjects()
   const { setTopbarTitle, openNewProjectModal, closeNewProjectModal, isNewProjectModalOpen } = useUIStore()
+  const loadProjects = useProjectStore((s) => s.loadProjects)
 
   useEffect(() => {
     setTopbarTitle('Projects')
-  }, [setTopbarTitle])
+    void loadProjects()
+  }, [setTopbarTitle, loadProjects])
 
   return (
     <div className="px-7 py-6">
