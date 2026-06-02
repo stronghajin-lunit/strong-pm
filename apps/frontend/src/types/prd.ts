@@ -4,7 +4,7 @@ export interface PrdRunRecord {
   id: string
   projectId: string
   projectName: string
-  targetTeam: string
+  targetTeams: string[]
   kickoffUrl: string
   prdPageUrl: string
   requestedAt: string

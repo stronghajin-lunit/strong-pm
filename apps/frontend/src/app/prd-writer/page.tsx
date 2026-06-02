@@ -117,7 +117,16 @@ export default function PrdWriterPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '')}>
                   <td className="px-[14px] py-[11px] text-[12px] font-medium">{record.projectName}</td>
-                  <td className="px-[14px] py-[11px] text-[12px]" style={{ color: 'var(--text-2)' }}>{record.targetTeam}</td>
+                  <td className="px-[14px] py-[11px]">
+                    <div className="flex flex-wrap gap-[4px]">
+                      {record.targetTeams.map((t) => (
+                        <span key={t} className="text-[11px] px-[6px] py-[2px] rounded-[5px]"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border-md)' }}>
+                          {t.split(' (')[0]}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                   <td className="px-[14px] py-[11px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.requestedAt}</td>
                   <td className="px-[14px] py-[11px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.completedAt ?? '—'}</td>
                   <td className="px-[14px] py-[11px]">

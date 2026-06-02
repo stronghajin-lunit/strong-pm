@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class PrdRunRequest(BaseModel):
     project_id: str
-    target_team: str
+    target_teams: list[str]  # multi-select
     kickoff_url: str
     prd_page_url: str
 
@@ -12,7 +12,7 @@ class PrdRunResponse(BaseModel):
     id: str
     project_id: str | None
     project_name: str
-    target_team: str
+    target_teams: list[str]
     kickoff_url: str
     prd_page_url: str
     requested_at: str

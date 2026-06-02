@@ -24,7 +24,7 @@ interface ApiPrdRun {
   id: string
   project_id: string | null
   project_name: string
-  target_team: string
+  target_teams: string[]
   kickoff_url: string
   prd_page_url: string
   requested_at: string
@@ -38,7 +38,7 @@ function toRecord(r: ApiPrdRun): PrdRunRecord {
     id: r.id,
     projectId: r.project_id ?? '',
     projectName: r.project_name,
-    targetTeam: r.target_team,
+    targetTeams: r.target_teams,
     kickoffUrl: r.kickoff_url,
     prdPageUrl: r.prd_page_url,
     requestedAt: r.requested_at,
@@ -55,7 +55,7 @@ export async function fetchPrdTeams(): Promise<PrdTeamOption[]> {
 
 export interface RunPrdPayload {
   project_id: string
-  target_team: string
+  target_teams: string[]
   kickoff_url: string
   prd_page_url: string
 }

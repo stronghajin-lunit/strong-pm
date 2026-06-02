@@ -38,6 +38,14 @@ TEAMS: list[dict[str, str]] = [
         "label": "SysEng (Systems Engineering)",
         "description": "Manages cloud/IDC infrastructure and backup operations.",
     },
+    {
+        "key": "External_Annotator",
+        "label": "External Annotator Group",
+        "description": (
+            "External annotators accessing the Annotation Tool for assigned jobs; "
+            "includes pre-registered users from partner institutions."
+        ),
+    },
 ]
 
 TEAM_LABELS = [t["label"] for t in TEAMS]
@@ -48,6 +56,16 @@ def get_team_description(label: str) -> str | None:
         if t["label"] == label or t["key"] == label:
             return t["description"]
     return None
+
+
+def get_teams_description(labels: list[str]) -> str:
+    """Return combined description for multiple teams."""
+    parts = []
+    for label in labels:
+        desc = get_team_description(label)
+        if desc:
+            parts.append(f"{label}: {desc}")
+    return "; ".join(parts)
 
 
 # ─── Product → Repo mapping ────────────────────────────────────────────────────

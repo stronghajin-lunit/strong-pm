@@ -34,7 +34,7 @@ from app.utils.prd_config import (
     TEAMS,
     build_repo_context,
     get_repos_for_products,
-    get_team_description,
+    get_teams_description,
 )
 
 
@@ -43,11 +43,13 @@ def _make_prd_id(db_id: int) -> str:
 
 
 def _to_response(run: PrdRun) -> PrdRunResponse:
+    # target_team stored as comma-joined string
+    teams = [t.strip() for t in run.target_team.split(",") if t.strip()]
     return PrdRunResponse(
         id=_make_prd_id(run.id),
         project_id=f"proj-{run.project_id}" if run.project_id else None,
         project_name=run.project_name,
-        target_team=run.target_team,
+        target_teams=teams,
         kickoff_url=run.kickoff_url,
         prd_page_url=run.prd_page_url,
         requested_at=fmt_dt_required(run.requested_at),
@@ -95,11 +97,12 @@ async def run_prd(db: AsyncSession, body: PrdRunRequest) -> PrdRunResponse:
 
     # ── Create run record (status=running) ─────────────────────────────────────
     now = datetime.now(UTC)
+    teams_str = ", ".join(body.target_teams)
     run = await prd_run_crud.create(
         db,
         project_id=proj_db_id,
         project_name=project.name,
-        target_team=body.target_team,
+        target_team=teams_str,
         kickoff_url=body.kickoff_url,
         prd_page_url=body.prd_page_url,
         prd_page_id=prd_page_id,
@@ -120,10 +123,10 @@ async def run_prd(db: AsyncSession, body: PrdRunRequest) -> PrdRunResponse:
         repo_context = build_repo_context(repos)
 
         # ── 4. Generate PRD sections via AI ─────────────────────────────────
-        team_description = get_team_description(body.target_team) or body.target_team
+        team_description = get_teams_description(body.target_teams)
         raw_output = await ai.generate_prd_sections(
             project_name=project.name,
-            target_team_label=body.target_team,
+            target_team_label=teams_str,
             target_team_description=team_description,
             kickoff_content=kickoff_content,
             project_context=project_context,
