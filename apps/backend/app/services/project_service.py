@@ -22,6 +22,20 @@ from app.utils import fmt_dt_required
 _JIRA_KEY_RE = re.compile(r"([A-Z]+-\d+)")
 
 
+def _derive_status(workflow_step: int) -> str:
+    """Derive project status from workflow step.
+
+    1 = Project Creation → not_started
+    2-3 = Kick off, PRD  → planning
+    4-5 = Development, Deployment → active
+    """
+    if workflow_step <= 1:
+        return "not_started"
+    if workflow_step <= 3:
+        return "planning"
+    return "active"
+
+
 def _extract_jira_key(url: str) -> str | None:
     m = _JIRA_KEY_RE.search(url)
     return m.group(1) if m else None
@@ -128,6 +142,11 @@ async def update_project(
         raise HTTPException(status_code=400, detail={"code": "INVALID_STATUS"})
 
     kwargs = {k: v for k, v in body.model_dump().items() if v is not None}
+
+    # Auto-derive status from workflow_step unless status is explicitly set
+    if body.workflow_step is not None and body.status is None:
+        kwargs["status"] = _derive_status(body.workflow_step)
+
     await project_crud.update(db, project, **kwargs)
 
     # Archive: keep AI summary, discard raw page cache to free storage
