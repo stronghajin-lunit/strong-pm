@@ -318,11 +318,19 @@ Do NOT elaborate or add context beyond what the kickoff states.>
 out-of-scope section. Same brevity as the kickoff. Do NOT elaborate.>
 
 === Target User ===
-<A Confluence storage-format table with two columns: User/Team | Description.
-One row per relevant team. Use the provided team descriptions.>
+<Output exactly two sub-sections in Confluence storage format:
+
+1. A bold paragraph <p><strong>User Definition</strong></p> followed by a <ul> where each \
+<li> is: <strong>TeamName</strong> — one sentence describing what they do in context of \
+this project. Only include teams relevant to this project.
+
+2. A bold paragraph <p><strong>User Story</strong></p> followed by a Confluence storage \
+table with 3 columns: As a | I want / need to | so that I can.
+3-7 rows. Each row is one concrete user action. "As a" = short role name (e.g. "MDM team"). \
+Keep each cell short — a phrase, not a sentence. No trailing period.>
 
 === User Story ===
-<3-7 user stories in format: "As a [role], I want/need to [action] so that I can [outcome].">
+<Leave this empty — user stories are already included in Target User above.>
 
 === Requirements ===
 <A Confluence storage-format table with 5 columns: \

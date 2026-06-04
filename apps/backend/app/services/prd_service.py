@@ -167,9 +167,13 @@ async def run_prd(db: AsyncSession, body: PrdRunRequest) -> PrdRunResponse:
                 out_of_scope_content=out_of_scope or "",
             )
 
+        # User Story is embedded in Target User — skip if empty
+        sections.pop("User Story", None)
+
         # Remaining sections use heading-based replacement
         for section_title, content in sections.items():
-            updated = confluence.replace_section(updated, section_title, f"\n{content}\n")
+            if content.strip():
+                updated = confluence.replace_section(updated, section_title, f"\n{content}\n")
 
         # ── 7. Save updated page ─────────────────────────────────────────────
         payload = {
