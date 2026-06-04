@@ -29,7 +29,8 @@ class Settings(BaseSettings):
 
     # AI (Anthropic Claude) — release-note generation.
     ANTHROPIC_API_KEY: str = ""
-    AI_MODEL: str = "claude-sonnet-4-6"
+    AI_MODEL: str = "claude-sonnet-4-6"          # complex tasks (PRD, Feature List, etc.)
+    AI_MODEL_FAST: str = "claude-haiku-4-5-20251001"  # simple tasks (action phrase, etc.)
     # Optional Anthropic-compatible gateway base URL; empty = public Anthropic API.
     ANTHROPIC_BASE_URL: str = ""
 

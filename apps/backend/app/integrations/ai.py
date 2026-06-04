@@ -475,7 +475,7 @@ async def generate_sprint_report(
     week_number: int,
     grouped_data: list[dict],
     total_sp: float,
-    example_page_storage: str,
+    example_page_storage: str = "",  # kept for API compat; no longer sent to AI
 ) -> str:
     """Generate Confluence sprint report as storage-format XML."""
     client = _get_client()
@@ -492,8 +492,7 @@ async def generate_sprint_report(
     user_content = (
         f"Sprint: {sprint_label} (Week {week_number})\n"
         f"Total Story Points: {total_sp}\n\n"
-        f"=== Sprint Data ===\n{rows_text}\n\n"
-        f"=== Example Confluence Page (reference format) ===\n{example_page_storage[:8000]}"
+        f"=== Sprint Data ===\n{rows_text}"
     )
 
     try:
@@ -515,12 +514,12 @@ async def generate_sprint_report(
 
 
 async def generate_ticket_action(feature_description: str) -> JiraTicketAction:
-    """Generate a verb+feature_name action phrase for the Jira summary."""
+    """Generate a verb+feature_name action phrase for the Jira summary (uses fast/cheap model)."""
     client = _get_client()
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=settings.AI_MODEL_FAST,
             max_tokens=64,
             thinking={"type": "disabled"},
             system=[
