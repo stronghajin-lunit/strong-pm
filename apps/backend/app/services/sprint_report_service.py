@@ -69,7 +69,7 @@ def _require_sprint_board() -> int:
 
 async def list_sprints() -> SprintOptionListResponse:
     board_id = _require_sprint_board()
-    sprints = await jira.fetch_sprints(board_id=board_id)
+    sprints = await jira.fetch_sprints_for_report(board_id=board_id)
 
     options: list[SprintOptionResponse] = []
     for s in sprints:

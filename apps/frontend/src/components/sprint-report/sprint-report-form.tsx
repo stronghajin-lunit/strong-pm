@@ -80,7 +80,7 @@ export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportF
               <option value="">— Select sprint —</option>
               {sprintOptions.map((sprint) => (
                 <option key={sprint.sprintId} value={sprint.sprintId}>
-                  {sprint.label} ({sprint.status === 'active' ? 'Active' : 'Closed'})
+                  {sprint.label} ({sprint.status === 'active' ? 'Active' : sprint.status === 'future' ? 'Upcoming' : 'Closed'})
                 </option>
               ))}
             </select>

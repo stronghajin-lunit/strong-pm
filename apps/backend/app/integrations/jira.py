@@ -264,14 +264,16 @@ async def create_issue(
     return JiraIssueResult(key=key, url=f"{base}/browse/{key}")
 
 
-async def fetch_sprints(board_id: int) -> list[JiraSprintData]:
-    """Return active and future sprints for a board (Agile API)."""
+async def _fetch_sprints_by_state(
+    board_id: int, state: str, max_results: int = 50
+) -> list[JiraSprintData]:
+    """Fetch sprints for a board filtered by state."""
     sprints: list[JiraSprintData] = []
     start_at = 0
     while True:
         response = await _agile_get(
             f"/rest/agile/1.0/board/{board_id}/sprint",
-            params={"state": "active,future", "startAt": start_at, "maxResults": 50},
+            params={"state": state, "startAt": start_at, "maxResults": max_results},
         )
         data = _ensure_ok(response)
         values: list[dict[str, Any]] = data.get("values", [])
@@ -287,6 +289,33 @@ async def fetch_sprints(board_id: int) -> list[JiraSprintData]:
             break
         start_at += len(values)
     return sprints
+
+
+async def fetch_sprints(board_id: int) -> list[JiraSprintData]:
+    """Return active and future sprints for a board (Agile API)."""
+    return await _fetch_sprints_by_state(board_id, "active,future")
+
+
+async def fetch_sprints_for_report(board_id: int) -> list[JiraSprintData]:
+    """Return sprints for Sprint Report: 2 recent closed + active + up to 2 future.
+
+    Sprints are returned ordered by sprint_id (chronological).
+    """
+    # Fetch each state separately
+    closed = await _fetch_sprints_by_state(board_id, "closed")
+    active = await _fetch_sprints_by_state(board_id, "active")
+    future = await _fetch_sprints_by_state(board_id, "future")
+
+    # closed: API returns oldest→newest; take the last 2
+    recent_closed = closed[-2:] if len(closed) >= 2 else closed
+
+    # future: take up to 2 (already oldest→newest)
+    upcoming = future[:2]
+
+    combined = recent_closed + active + upcoming
+    # Sort by sprint_id to ensure chronological order
+    combined.sort(key=lambda s: s.sprint_id)
+    return combined
 
 
 async def add_issue_to_sprint(sprint_id: int, issue_key: str) -> None:
