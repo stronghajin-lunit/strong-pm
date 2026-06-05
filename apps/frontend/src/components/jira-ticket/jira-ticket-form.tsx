@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { fetchJiraSprints, runJiraTicket } from '@/api/jira-tickets'
 import type { JiraSprintOption } from '@/api/jira-tickets'
+import { useProjectStore } from '@/stores/project-store'
 import type { JiraProduct, JiraTicketRunRecord, JiraTicketType } from '@/types/jira-ticket'
 
 interface JiraTicketFormProps {
@@ -17,6 +18,8 @@ const TYPE_CONFIG: Record<JiraTicketType, { bg: string; color: string }> = {
 const PRODUCTS: JiraProduct[] = ['ODM', 'Annotation Admin', 'Annotation Tool']
 
 export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
+  const projects = useProjectStore((s) => s.projects)
+  const [projectId, setProjectId]         = useState('')
   const [product, setProduct]             = useState<JiraProduct | ''>('')
   const [feature, setFeature]             = useState('')
   const [dod, setDod]                     = useState('')
@@ -56,6 +59,7 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
         type,
         feature_description: feature,
         definition_of_done: dod,
+        project_id: projectId || undefined,
       })
       onRunComplete?.(record)
     } catch (err) {
@@ -81,6 +85,26 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
         </div>
 
         <div className="flex flex-col gap-4">
+          {/* Project (optional) */}
+          <Field label="Project" hint="Select to link the Jira ticket to this project's epic.">
+            <select
+              data-testid="project-select"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-md)',
+                color: projectId ? 'var(--text-1)' : 'var(--text-3)',
+              }}
+            >
+              <option value="">— None —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </Field>
+
           {/* Product + Type row */}
           <div className="flex gap-4">
             <div className="flex-1">

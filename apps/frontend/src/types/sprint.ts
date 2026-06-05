@@ -4,7 +4,7 @@ export interface SprintOption {
   sprintId: number
   sprintNumber: number
   label: string
-  status: 'active' | 'closed'
+  status: 'active' | 'closed' | 'future'
 }
 
 export interface SprintRunRecord {

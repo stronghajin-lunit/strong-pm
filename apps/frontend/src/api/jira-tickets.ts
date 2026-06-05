@@ -73,6 +73,7 @@ export interface RunJiraTicketPayload {
   type: JiraTicketType
   feature_description: string
   definition_of_done: string
+  project_id?: string
 }
 
 export async function runJiraTicket(payload: RunJiraTicketPayload): Promise<JiraTicketRunRecord> {

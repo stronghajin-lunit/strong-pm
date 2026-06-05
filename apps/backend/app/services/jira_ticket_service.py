@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.crud import jira_ticket_run as jira_ticket_run_crud
+from app.crud import project as project_crud
 from app.integrations import ai, jira
 from app.models.jira_ticket_run import JiraTicketRun
 from app.schemas.jira_ticket import (
@@ -63,12 +64,24 @@ async def run(db: AsyncSession, body: JiraTicketRunRequest) -> JiraTicketRunResp
     # Determine labels from config mapping + special keywords
     labels = get_labels(body.product, area, body.feature_description)
 
+    # Resolve parent epic key from selected StrongPM project
+    parent_key: str | None = None
+    if body.project_id:
+        try:
+            proj_db_id = int(body.project_id.removeprefix("proj-"))
+            project = await project_crud.get_by_id(db, proj_db_id)
+            if project and project.epic_key:
+                parent_key = project.epic_key
+        except (ValueError, Exception):
+            pass  # non-fatal — create ticket without parent
+
     issue = await jira.create_issue(
         project_key=settings.JIRA_TICKET_PROJECT_KEY,
         issue_type=body.type,
         summary=summary,
         description=description,
         labels=labels,
+        parent_key=parent_key,
     )
 
     await jira.add_issue_to_sprint(sprint_id=body.sprint_id, issue_key=issue.key)

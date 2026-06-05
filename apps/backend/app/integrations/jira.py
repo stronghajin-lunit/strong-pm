@@ -247,6 +247,7 @@ async def create_issue(
     summary: str,
     description: str,
     labels: list[str] | None = None,
+    parent_key: str | None = None,
 ) -> JiraIssueResult:
     """Create a Jira issue and return its key and browse URL."""
     fields: dict[str, Any] = {
@@ -257,6 +258,8 @@ async def create_issue(
     }
     if labels:
         fields["labels"] = labels
+    if parent_key:
+        fields["parent"] = {"key": parent_key}
     response = await _post("/rest/api/3/issue", {"fields": fields})
     data = _ensure_ok(response)
     key = str(data["key"])

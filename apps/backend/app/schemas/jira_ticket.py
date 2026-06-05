@@ -11,6 +11,7 @@ class JiraTicketRunRequest(BaseModel):
     type: str
     feature_description: str
     definition_of_done: str
+    project_id: str | None = None  # StrongPM project id (e.g. "proj-1")
 
 
 class JiraTicketRunResponse(BaseModel):
