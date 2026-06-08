@@ -22,12 +22,16 @@ PM 업무 자동화 도구. 핵심 기능 묶음:
 
 ## 현재 작업
 
-> 마지막 업데이트: 2026-06-01
+> 마지막 업데이트: 2026-06-08
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | Jira Ticket Writer API 구현 (BE) | ✅ 완료 | model/schema/crud/service/endpoint + 마이그레이션 + 테스트 |
 | Jira Ticket Writer 프론트 연동 | ✅ 완료 | mock 제거, 실 API 연동, 스프린트 API 연동 |
+| Jira Ticket Writer Project 드롭다운 | ✅ 완료 | Epic을 parent로 설정하는 Project 선택 드롭다운 추가 |
+| Sprint Report Creator 드롭다운 개선 | ✅ 완료 | active±2 스프린트만 표시하도록 필터링 |
+| haiku 모델 최적화 | ✅ 완료 | action phrase에 haiku 사용, sprint report 예시 페이지 제거 |
+| 백엔드 섹션 포맷 수정 | ✅ 완료 | Target User = User Definition 불릿 + User Story 3열 테이블, scope 섹션 간결화 |
 | Release Note Creator '반영' 버튼 제거 | 🔲 대기 | 프론트+백엔드 전체 제거 필요 (유저 확인 완료) |
 | 백엔드 테스트 보강 | 🔴 미흡 | 로컬 DB 미실행으로 실행 불가 (greenlet+postgres 환경 이슈) |
 | `.gitignore` 정리 | 🔲 대기 | `.next/`, `node_modules/`, `.DS_Store`, `.env.local` 노출 |
@@ -35,7 +39,7 @@ PM 업무 자동화 도구. 핵심 기능 묶음:
 ### 다음 우선순위
 
 1. Release Note Creator '반영' 기능 전체 제거 (프론트 + 백엔드)
-2. 현 브랜치 커밋 정리 후 PR (jira-ticket-writer, reflection 제거)
+2. 현 브랜치 커밋 정리 후 PR (`feature/frontend-and-docker-deps`)
 3. 백엔드 도메인별 테스트 (DB 환경 구동 후)
 
 ---
