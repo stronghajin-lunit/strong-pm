@@ -1,57 +1,37 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { fetchSprintOptions, fetchSprintReports } from '@/api/sprint-reports'
 import { SprintReportForm } from '@/components/sprint-report/sprint-report-form'
-import { ChatPanel } from '@/components/workspace/chat-panel'
 import { useUIStore } from '@/stores/ui-store'
-import { useChatStore } from '@/stores/chat-store'
-import { MOCK_SPRINT_OPTIONS, MOCK_SPRINT_RUN_HISTORY } from '@/mocks/sprints'
-import type { SprintRunRecord } from '@/types/sprint'
+import type { SprintOption, SprintRunRecord, RunStatus } from '@/types/sprint'
 
-type RunStatus = SprintRunRecord['status']
-
-const RUN_STATUS_CONFIG: Record<RunStatus, { label: string; bg: string; color: string }> = {
+const STATUS_CONFIG: Record<RunStatus, { label: string; bg: string; color: string }> = {
   running: { label: 'Running', bg: '#FAEEDA', color: '#854F0B' },
   done:    { label: 'Done',    bg: '#EFF6FF', color: '#1E40AF' },
   error:   { label: 'Error',   bg: '#FAECE7', color: '#993C1D' },
 }
 
-const COLS = ['Jira Sprint', 'Requested', 'Completed', 'Status', 'Link', '반영']
-const COL_SPAN = COLS.length
+const COLS = ['Jira Sprint', 'Requested', 'Completed', 'Status', 'Link']
 
 export default function SprintReportPage() {
   const setTopbarTitle = useUIStore((s) => s.setTopbarTitle)
-  const openChat = useChatStore((s) => s.openChat)
   const searchParams = useSearchParams()
   const router = useRouter()
   const view = searchParams.get('view') === 'create' ? 'create' : 'list'
-  const [history, setHistory] = useState<SprintRunRecord[]>(MOCK_SPRINT_RUN_HISTORY)
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [history, setHistory] = useState<SprintRunRecord[]>([])
+  const [sprintOptions, setSprintOptions] = useState<SprintOption[]>([])
 
   useEffect(() => {
     setTopbarTitle('Sprint Report Creator')
+    void fetchSprintOptions().then(setSprintOptions).catch(() => setSprintOptions([]))
+    void fetchSprintReports().then(setHistory).catch(() => setHistory([]))
   }, [setTopbarTitle])
 
   const handleRunComplete = (record: SprintRunRecord) => {
     setHistory((prev) => [record, ...prev])
     router.push('/sprint-report')
-  }
-
-  const handleReflectionConfirm = (recordId: string, text: string) => {
-    setHistory((prev) =>
-      prev.map((r) => (r.id === recordId ? { ...r, reflection: text } : r)),
-    )
-    setExpandedRows((prev) => new Set([...prev, recordId]))
-  }
-
-  const toggleExpand = (id: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
   }
 
   if (view === 'create') {
@@ -75,7 +55,7 @@ export default function SprintReportPage() {
 
         <div className="max-w-[780px]">
           <SprintReportForm
-            sprintOptions={MOCK_SPRINT_OPTIONS}
+            sprintOptions={sprintOptions}
             onRunComplete={handleRunComplete}
           />
         </div>
@@ -89,7 +69,7 @@ export default function SprintReportPage() {
         <div>
           <h2 className="text-[20px] font-semibold tracking-[-0.4px]">Sprint Report Creator</h2>
           <p className="text-[12px] mt-[3px]" style={{ color: 'var(--text-3)' }}>
-            Auto-generate sprint reports from Jira sprint data.
+            Auto-generate sprint reports from Jira sprint data and update Confluence.
           </p>
         </div>
         <button
@@ -127,7 +107,7 @@ export default function SprintReportPage() {
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={COL_SPAN}>
+                <td colSpan={COLS.length}>
                   <div className="py-10 flex flex-col items-center gap-2">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" width="28" height="28" className="opacity-30" style={{ color: 'var(--text-3)' }}>
                       <rect x="2" y="5" width="12" height="9" rx="1" />
@@ -150,154 +130,60 @@ export default function SprintReportPage() {
                 </td>
               </tr>
             ) : history.map((record, idx) => {
-              const statusCfg = RUN_STATUS_CONFIG[record.status]
-              const isExpanded = expandedRows.has(record.id)
-              const canReflect = record.status === 'done' && !record.reflection
-              const reflected = !!record.reflection
-
+              const cfg = STATUS_CONFIG[record.status]
               return (
-                <Fragment key={record.id}>
-                  <tr
-                    data-testid={`history-row-${record.id}`}
-                    className="transition-colors"
-                    style={
-                      idx < history.length - 1 || (reflected && isExpanded)
-                        ? { borderBottom: '1px solid var(--border)' }
-                        : undefined
-                    }
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                <tr
+                  key={record.id}
+                  data-testid={`history-row-${record.id}`}
+                  className="transition-colors"
+                  style={idx < history.length - 1 ? { borderBottom: '1px solid var(--border)' } : undefined}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                >
+                  <td className="px-[14px] py-[11px] text-[12px] font-medium">
+                    {record.sprintLabel}
+                  </td>
+                  <td className="px-[14px] py-[11px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
+                    {record.requestedAt}
+                  </td>
+                  <td
+                    className="px-[14px] py-[11px] text-[12px] whitespace-nowrap"
+                    style={{ color: 'var(--text-3)' }}
+                    data-testid={`completed-at-${record.id}`}
                   >
-                    {/* Jira Sprint (with expand toggle if reflected) */}
-                    <td className="px-[14px] py-[11px] text-[12px]">
-                      <div className="flex items-center gap-2">
-                        {reflected && (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpand(record.id)}
-                            data-testid={`expand-btn-${record.id}`}
-                            className="flex-shrink-0 transition-transform"
-                            style={{ color: 'var(--text-3)', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                          >
-                            <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
-                              <path d="M6 4l4 4-4 4V4z" />
-                            </svg>
-                          </button>
-                        )}
-                        <span>
-                          <span className="font-medium">{record.sprintLabel}</span>
-                          {' · '}
-                          <span style={{ color: 'var(--text-2)' }}>{record.projectName}</span>
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Requested */}
-                    <td className="px-[14px] py-[11px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
-                      {record.requestedAt}
-                    </td>
-
-                    {/* Completed */}
-                    <td
-                      className="px-[14px] py-[11px] text-[12px] whitespace-nowrap"
-                      style={{ color: 'var(--text-3)' }}
-                      data-testid={`completed-at-${record.id}`}
+                    {record.completedAt ?? '—'}
+                  </td>
+                  <td className="px-[14px] py-[11px]">
+                    <span
+                      data-testid={`history-status-${record.id}`}
+                      className="text-[11px] font-semibold px-[7px] py-[2px] rounded-[7px]"
+                      style={{ background: cfg.bg, color: cfg.color }}
                     >
-                      {record.completedAt ?? '—'}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-[14px] py-[11px]">
-                      <span
-                        data-testid={`history-status-${record.id}`}
-                        className="text-[11px] font-semibold px-[7px] py-[2px] rounded-[7px]"
-                        style={{ background: statusCfg.bg, color: statusCfg.color }}
+                      {cfg.label}
+                    </span>
+                  </td>
+                  <td className="px-[14px] py-[11px]">
+                    {record.confluenceUrl ? (
+                      <a
+                        href={record.confluenceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-testid={`history-link-${record.id}`}
+                        className="text-[11px] underline cursor-pointer"
+                        style={{ color: 'var(--accent)' }}
                       >
-                        {statusCfg.label}
-                      </span>
-                    </td>
-
-                    {/* Link */}
-                    <td className="px-[14px] py-[11px]">
-                      {record.confluenceUrl ? (
-                        <a
-                          href={record.confluenceUrl}
-                          data-testid={`history-link-${record.id}`}
-                          className="text-[11px] underline cursor-pointer"
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          Confluence ↗
-                        </a>
-                      ) : (
-                        <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* Applied */}
-                    <td className="px-[14px] py-[11px]">
-                      {reflected ? (
-                        <button
-                          type="button"
-                          disabled
-                          data-testid={`reflect-btn-${record.id}`}
-                          className="text-[11px] font-medium px-[8px] py-[3px] rounded-[6px] opacity-50 cursor-not-allowed"
-                          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)' }}
-                        >
-                          반영완료
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={!canReflect}
-                          data-testid={`reflect-btn-${record.id}`}
-                          onClick={() =>
-                            record.confluenceUrl &&
-                            openChat({
-                              recordId: record.id,
-                              recordType: 'sprint',
-                              confluenceUrl: record.confluenceUrl,
-                            })
-                          }
-                          className="text-[11px] font-medium px-[8px] py-[3px] rounded-[6px] transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-1)' }}
-                        >
-                          반영
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-
-                  {/* Accordion row */}
-                  {reflected && isExpanded && (
-                    <tr
-                      key={`${record.id}-reflection`}
-                      data-testid={`reflection-row-${record.id}`}
-                      style={idx < history.length - 1 ? { borderBottom: '1px solid var(--border)' } : undefined}
-                    >
-                      <td colSpan={COL_SPAN} className="px-[14px] py-3">
-                        <div
-                          className="rounded-[8px] px-4 py-3 text-[12px] leading-[1.6]"
-                          style={{ background: 'var(--surface-2)' }}
-                        >
-                          <p
-                            className="text-[11px] font-semibold mb-1"
-                            style={{ color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                          >
-                            Applied Notes
-                          </p>
-                          <p style={{ color: 'var(--text-1)' }}>{record.reflection}</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                        Confluence ↗
+                      </a>
+                    ) : (
+                      <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>—</span>
+                    )}
+                  </td>
+                </tr>
               )
             })}
           </tbody>
         </table>
       </div>
-
-      <ChatPanel onConfirm={handleReflectionConfirm} />
     </div>
   )
 }

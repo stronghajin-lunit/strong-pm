@@ -16,17 +16,7 @@ class ReleaseNoteResponse(BaseModel):
     completed_at: str | None
     status: str
     confluence_url: str | None
-    reflection: str | None = None
 
 
 class ReleaseNoteListResponse(BaseModel):
     notes: list[ReleaseNoteResponse]
-
-
-class ReflectionRequest(BaseModel):
-    reflection: str
-
-
-class ReflectionResponse(BaseModel):
-    id: str
-    reflection: str

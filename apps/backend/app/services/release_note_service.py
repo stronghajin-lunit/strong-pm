@@ -11,11 +11,10 @@ from app.models.jira_version import JiraVersion
 from app.models.release_note import ReleaseNote
 from app.schemas.release_note import (
     VALID_CONFLUENCE_PAGES,
-    ReflectionResponse,
     ReleaseNoteListResponse,
     ReleaseNoteResponse,
 )
-from app.utils import fmt_dt, fmt_dt_required, make_rn_id, parse_rn_id
+from app.utils import fmt_dt, fmt_dt_required, make_rn_id
 
 
 def _to_response(note: ReleaseNote, version: JiraVersion) -> ReleaseNoteResponse:
@@ -27,7 +26,6 @@ def _to_response(note: ReleaseNote, version: JiraVersion) -> ReleaseNoteResponse
         completed_at=fmt_dt(note.completed_at),
         status=note.status,
         confluence_url=note.confluence_url,
-        reflection=note.reflection,
     )
 
 
@@ -82,20 +80,3 @@ async def list_notes(db: AsyncSession) -> ReleaseNoteListResponse:
         if version:
             result.append(_to_response(note, version))
     return ReleaseNoteListResponse(notes=result)
-
-
-async def apply_reflection(db: AsyncSession, rn_id: str, reflection: str) -> ReflectionResponse:
-    try:
-        note_db_id = parse_rn_id(rn_id)
-    except (ValueError, AttributeError):
-        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
-
-    note = await release_note_crud.get_by_id(db, note_db_id)
-    if note is None:
-        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
-    if note.reflection is not None:
-        raise HTTPException(status_code=409, detail={"code": "CONFLICT"})
-
-    await release_note_crud.update_reflection(db, note, reflection)
-    await db.commit()
-    return ReflectionResponse(id=rn_id, reflection=reflection)

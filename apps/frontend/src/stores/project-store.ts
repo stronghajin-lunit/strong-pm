@@ -1,38 +1,53 @@
 import { create } from 'zustand'
 import type { Project, ProjectStatus } from '@/types/project'
-import { MOCK_PROJECTS } from '@/mocks/projects'
-
-function deriveStatus(step: number): ProjectStatus {
-  if (step <= 1) return 'not_started'
-  if (step <= 3) return 'planning'
-  return 'active'
-}
+import { fetchProjects, createProject, updateProject } from '@/api/projects'
+import type { CreateProjectPayload } from '@/api/projects'
 
 interface ProjectState {
   projects: Project[]
-  selectedProjectId: string | null
-  addProject: (project: Project) => void
-  setSelectedProject: (id: string | null) => void
-  advanceWorkflowStep: (id: string) => void
-  updateProjectStatus: (id: string, status: ProjectStatus) => void
+  isLoading: boolean
+  loadProjects: () => Promise<void>
+  addProject: (payload: CreateProjectPayload) => Promise<Project>
+  advanceWorkflowStep: (id: string) => Promise<void>
+  updateProjectStatus: (id: string, status: ProjectStatus) => Promise<void>
 }
 
-export const useProjectStore = create<ProjectState>((set) => ({
-  projects: MOCK_PROJECTS,
-  selectedProjectId: null,
-  addProject: (project) => set((state) => ({ projects: [project, ...state.projects] })),
-  setSelectedProject: (id) => set({ selectedProjectId: id }),
-  advanceWorkflowStep: (id) =>
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  projects: [],
+  isLoading: false,
+
+  loadProjects: async () => {
+    set({ isLoading: true })
+    try {
+      const projects = await fetchProjects()
+      set({ projects })
+    } catch {
+      // keep existing projects on error
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  addProject: async (payload: CreateProjectPayload) => {
+    const project = await createProject(payload)
+    set((state) => ({ projects: [project, ...state.projects] }))
+    return project
+  },
+
+  advanceWorkflowStep: async (id: string) => {
+    const project = get().projects.find((p) => p.id === id)
+    if (!project) return
+    const newStep = Math.min((project.workflowStep ?? 1) + 1, 5)
+    const updated = await updateProject(id, { workflow_step: newStep })
     set((state) => ({
-      projects: state.projects.map((p) => {
-        if (p.id !== id) return p
-        const currentStep = p.workflowStep ?? 1
-        const newStep = Math.min(currentStep + 1, 5)
-        return { ...p, workflowStep: newStep, status: deriveStatus(newStep) }
-      }),
-    })),
-  updateProjectStatus: (id, status) =>
+      projects: state.projects.map((p) => (p.id === id ? updated : p)),
+    }))
+  },
+
+  updateProjectStatus: async (id: string, status: ProjectStatus) => {
+    const updated = await updateProject(id, { status })
     set((state) => ({
-      projects: state.projects.map((p) => (p.id === id ? { ...p, status } : p)),
-    })),
+      projects: state.projects.map((p) => (p.id === id ? updated : p)),
+    }))
+  },
 }))

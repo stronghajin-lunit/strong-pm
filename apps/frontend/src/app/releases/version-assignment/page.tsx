@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { VersionAssignmentTable } from '@/components/releases/version-assignment-table'
 import { VersionAssignModal } from '@/components/releases/version-assign-modal'
-import { MOCK_JIRA_VERSIONS, MOCK_UNVERSIONED_TICKETS } from '@/mocks/version-assignment'
+import {
+  fetchVersionOptions,
+  fetchUnversionedTickets,
+  assignVersion,
+} from '@/api/version-assignment'
 import type { JiraTicket, JiraVersion, EpicGroup, FilterPeriod } from '@/types/version-assignment'
 
 const FILTER_OPTIONS: { value: FilterPeriod; label: string }[] = [
@@ -19,24 +23,57 @@ export default function VersionAssignmentPage() {
 
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('1m')
   const [searchQuery, setSearchQuery] = useState('')
-  const [tickets, setTickets] = useState<JiraTicket[]>(MOCK_UNVERSIONED_TICKETS)
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const [tickets, setTickets] = useState<JiraTicket[]>([])
+  const [versions, setVersions] = useState<JiraVersion[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedVersion, setSelectedVersion] = useState<JiraVersion | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setTopbarTitle('Version Assignment')
+    void fetchVersionOptions().then(setVersions).catch(() => setVersions([]))
   }, [setTopbarTitle])
 
-  const sortedVersions = useMemo(
-    () => [...MOCK_JIRA_VERSIONS].sort((a, b) => a.releaseDate.localeCompare(b.releaseDate)),
-    [],
+  const loadTickets = useCallback((period: FilterPeriod) => {
+    setIsLoading(true)
+    setSelectedIds(new Set())
+    setSelectedStatuses(new Set())
+    void fetchUnversionedTickets(period)
+      .then(setTickets)
+      .catch(() => setTickets([]))
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadTickets(filterPeriod)
+  }, [filterPeriod, loadTickets])
+
+  // Close status dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Derive unique statuses from all fetched tickets (sorted alphabetically)
+  const allStatuses = useMemo(
+    () => [...new Set(tickets.map((t) => t.status))].sort(),
+    [tickets],
   )
 
   const groups = useMemo<EpicGroup[]>(() => {
     const filtered = tickets.filter((t) => {
+      if (selectedStatuses.size > 0 && !selectedStatuses.has(t.status)) return false
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       return t.id.toLowerCase().includes(q) || t.summary.toLowerCase().includes(q)
@@ -59,12 +96,22 @@ export default function VersionAssignmentPage() {
         epicName: epicTickets[0]?.epicName ?? null,
         tickets: epicTickets,
       }))
-  }, [tickets, searchQuery])
+  }, [tickets, searchQuery, selectedStatuses])
 
   const selectedTickets = useMemo(
     () => tickets.filter((t) => selectedIds.has(t.id)),
     [tickets, selectedIds],
   )
+
+  const handleToggleStatus = (status: string) => {
+    setSelectedStatuses((prev) => {
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+    setSelectedIds(new Set())
+  }
 
   const handleToggleTicket = (id: string) => {
     setSelectedIds((prev) => {
@@ -87,19 +134,35 @@ export default function VersionAssignmentPage() {
     })
   }
 
-  const handleConfirm = () => {
-    setShowModal(false)
-    const idsToAssign = new Set(selectedIds)
-    const count = idsToAssign.size
-    const versionName = selectedVersion!.name
-
-    setTickets((prev) => prev.filter((t) => !idsToAssign.has(t.id)))
+  const handleRemoveSelected = () => {
+    setTickets((prev) => prev.filter((t) => !selectedIds.has(t.id)))
     setSelectedIds(new Set())
     setFailedIds(new Set())
+  }
+
+  const handleConfirm = async () => {
+    if (!selectedVersion) return
+    setShowModal(false)
+
+    const idsToAssign = [...selectedIds]
+    const versionName = selectedVersion.name
+
+    const result = await assignVersion(idsToAssign, selectedVersion.id).catch(() => ({
+      succeeded: [] as string[],
+      failed: idsToAssign,
+    }))
+
+    const succeededSet = new Set(result.succeeded)
+    setTickets((prev) => prev.filter((t) => !succeededSet.has(t.id)))
+    setFailedIds(new Set(result.failed))
+    setSelectedIds(new Set(result.failed))
     setSelectedVersion(null)
 
-    setToast(`${count} ticket${count !== 1 ? 's' : ''} assigned to ${versionName}`)
-    setTimeout(() => setToast(null), 3500)
+    const count = result.succeeded.length
+    if (count > 0) {
+      setToast(`${count} ticket${count !== 1 ? 's' : ''} assigned to ${versionName}`)
+      setTimeout(() => setToast(null), 3500)
+    }
   }
 
   const canApply = selectedIds.size > 0 && selectedVersion !== null
@@ -140,6 +203,86 @@ export default function VersionAssignmentPage() {
           ))}
         </div>
 
+        {/* Status filter dropdown */}
+        <div className="relative shrink-0" ref={statusDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setStatusDropdownOpen((o) => !o)}
+            className="flex items-center gap-[6px] px-[10px] py-[6px] rounded-[8px] text-[12px] font-medium transition-colors"
+            style={{
+              background: 'var(--surface)',
+              border: selectedStatuses.size > 0 ? '1px solid var(--accent)' : '1px solid var(--border-md)',
+              color: selectedStatuses.size > 0 ? 'var(--accent)' : 'var(--text-2)',
+            }}
+          >
+            Status
+            {selectedStatuses.size > 0 && (
+              <span
+                className="text-[10px] font-bold px-[5px] py-[1px] rounded-full"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                {selectedStatuses.size}
+              </span>
+            )}
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              width="10"
+              height="10"
+              style={{ transform: statusDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
+            >
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+          </button>
+
+          {statusDropdownOpen && allStatuses.length > 0 && (
+            <div
+              className="absolute left-0 top-[calc(100%+4px)] z-20 rounded-[8px] py-1 min-w-[160px]"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border-md)', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+            >
+              {selectedStatuses.size > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatuses(new Set())}
+                    className="w-full text-left px-[12px] py-[6px] text-[11px] font-medium transition-colors hover:opacity-70"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    Clear all
+                  </button>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
+                </>
+              )}
+              {allStatuses.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => handleToggleStatus(status)}
+                  className="w-full flex items-center gap-[8px] px-[12px] py-[7px] text-[12px] transition-colors hover:opacity-80"
+                  style={{ color: 'var(--text-1)' }}
+                >
+                  <span
+                    className="w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0"
+                    style={{
+                      background: selectedStatuses.has(status) ? 'var(--accent)' : 'transparent',
+                      borderColor: selectedStatuses.has(status) ? 'var(--accent)' : 'var(--border-md)',
+                    }}
+                  >
+                    {selectedStatuses.has(status) && (
+                      <svg viewBox="0 0 10 10" fill="none" stroke="#fff" strokeWidth="1.5" width="8" height="8">
+                        <path d="M1.5 5l2.5 2.5 4.5-4" />
+                      </svg>
+                    )}
+                  </span>
+                  {status}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Search */}
         <input
           type="text"
@@ -164,7 +307,7 @@ export default function VersionAssignmentPage() {
         <select
           value={selectedVersion?.id ?? ''}
           onChange={(e) => {
-            const v = sortedVersions.find((ver) => ver.id === e.target.value) ?? null
+            const v = versions.find((ver) => ver.id === e.target.value) ?? null
             setSelectedVersion(v)
           }}
           disabled={selectedIds.size === 0}
@@ -176,10 +319,25 @@ export default function VersionAssignmentPage() {
           }}
         >
           <option value="">— Select version —</option>
-          {sortedVersions.map((v) => (
+          {versions.map((v) => (
             <option key={v.id} value={v.id}>{v.name}</option>
           ))}
         </select>
+
+        {/* Remove from list button — visible when tickets are selected */}
+        {selectedIds.size > 0 && (
+          <button
+            type="button"
+            onClick={handleRemoveSelected}
+            className="flex items-center gap-[5px] px-[14px] py-[7px] rounded-[8px] text-[12px] font-semibold transition-opacity hover:opacity-80 shrink-0"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-md)', color: 'var(--text-2)' }}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9" />
+            </svg>
+            Remove from list
+          </button>
+        )}
 
         {/* Apply button */}
         <button
@@ -196,21 +354,30 @@ export default function VersionAssignmentPage() {
         </button>
       </div>
 
+      {/* Loading */}
+      {isLoading && (
+        <p className="text-[12px] text-center py-8" style={{ color: 'var(--text-3)' }}>
+          Loading tickets…
+        </p>
+      )}
+
       {/* Table */}
-      <VersionAssignmentTable
-        groups={groups}
-        selectedIds={selectedIds}
-        failedIds={failedIds}
-        onToggleTicket={handleToggleTicket}
-        onToggleEpic={handleToggleEpic}
-      />
+      {!isLoading && (
+        <VersionAssignmentTable
+          groups={groups}
+          selectedIds={selectedIds}
+          failedIds={failedIds}
+          onToggleTicket={handleToggleTicket}
+          onToggleEpic={handleToggleEpic}
+        />
+      )}
 
       {/* Preview modal */}
       {showModal && selectedVersion && (
         <VersionAssignModal
           tickets={selectedTickets}
           version={selectedVersion}
-          onConfirm={handleConfirm}
+          onConfirm={() => { void handleConfirm() }}
           onCancel={() => setShowModal(false)}
         />
       )}

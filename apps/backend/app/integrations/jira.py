@@ -6,7 +6,7 @@ service layer is unaffected.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -19,6 +19,7 @@ class JiraVersionData:
     jira_id: str
     label: str
     synced_at: datetime
+    release_date: str | None = None  # YYYY-MM-DD from Jira, None if not set
 
 
 @dataclass
@@ -27,12 +28,26 @@ class JiraTicketData:
     title: str
 
 
+@dataclass
+class JiraSprintData:
+    sprint_id: int
+    label: str
+    state: str  # "active" | "future" | "closed"
+
+
+@dataclass
+class JiraIssueResult:
+    key: str
+    url: str
+
+
 class JiraIntegrationError(Exception):
     """Raised when Jira is unreachable, misconfigured, or returns an error."""
 
 
 _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 _client: httpx.AsyncClient | None = None
+_agile_client: httpx.AsyncClient | None = None
 
 
 def _require_config() -> None:
@@ -53,7 +68,7 @@ def _require_config() -> None:
 
 
 def _get_client() -> httpx.AsyncClient:
-    """Return a lazily-created shared client (keep-alive across calls)."""
+    """Return a lazily-created shared REST v3 client (keep-alive across calls)."""
     global _client
     _require_config()
     if _client is None:
@@ -66,16 +81,57 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
+def _get_agile_client() -> httpx.AsyncClient:
+    """Return a lazily-created shared Agile REST client."""
+    global _agile_client
+    _require_config()
+    if _agile_client is None:
+        _agile_client = httpx.AsyncClient(
+            base_url=settings.JIRA_BASE_URL.rstrip("/"),
+            auth=httpx.BasicAuth(settings.JIRA_EMAIL, settings.JIRA_API_TOKEN),
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=_TIMEOUT,
+        )
+    return _agile_client
+
+
 async def aclose() -> None:
-    """Close the shared client (call on application shutdown)."""
-    global _client
+    """Close shared clients (call on application shutdown)."""
+    global _client, _agile_client
     if _client is not None:
         await _client.aclose()
         _client = None
+    if _agile_client is not None:
+        await _agile_client.aclose()
+        _agile_client = None
 
 
 async def _get(path: str, params: dict[str, Any] | None = None) -> httpx.Response:
     client = _get_client()
+    try:
+        return await client.get(path, params=params)
+    except httpx.HTTPError as exc:
+        raise JiraIntegrationError(f"Jira request failed: {exc}") from exc
+
+
+async def _post(path: str, json: dict[str, Any], *, agile: bool = False) -> httpx.Response:
+    client = _get_agile_client() if agile else _get_client()
+    try:
+        return await client.post(path, json=json)
+    except httpx.HTTPError as exc:
+        raise JiraIntegrationError(f"Jira request failed: {exc}") from exc
+
+
+async def _put(path: str, json: dict[str, Any]) -> httpx.Response:
+    client = _get_client()
+    try:
+        return await client.put(path, json=json)
+    except httpx.HTTPError as exc:
+        raise JiraIntegrationError(f"Jira request failed: {exc}") from exc
+
+
+async def _agile_get(path: str, params: dict[str, Any] | None = None) -> httpx.Response:
+    client = _get_agile_client()
     try:
         return await client.get(path, params=params)
     except httpx.HTTPError as exc:
@@ -96,7 +152,7 @@ def _ensure_ok(response: httpx.Response) -> dict[str, Any]:
 
 async def fetch_fix_versions() -> list[JiraVersionData]:
     """Return fix versions across all configured project keys (newest first)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     versions: list[JiraVersionData] = []
     for key in settings.jira_project_keys_list:
         start_at = 0
@@ -115,6 +171,7 @@ async def fetch_fix_versions() -> list[JiraVersionData]:
                         jira_id=str(v["id"]),
                         label=str(v["name"]),
                         synced_at=now,
+                        release_date=v.get("releaseDate") or None,
                     )
                 )
             if data.get("isLast", True) or not values:
@@ -160,3 +217,375 @@ async def _search_issues(jira_version_id: str) -> list[JiraTicketData]:
         if data.get("isLast", True) or not next_token:
             break
     return tickets
+
+
+# ─── Jira Ticket Writer ───────────────────────────────────────────────────────
+
+
+def _to_adf_doc(text: str) -> dict[str, Any]:
+    """Wrap plain text into a minimal Atlassian Document Format (ADF) document."""
+    paragraphs: list[dict[str, Any]] = []
+    for line in text.splitlines():
+        paragraphs.append(
+            {
+                "type": "paragraph",
+                "content": [{"type": "text", "text": line or " "}],
+            }
+        )
+    return {
+        "version": 1,
+        "type": "doc",
+        "content": paragraphs or [
+            {"type": "paragraph", "content": [{"type": "text", "text": " "}]}
+        ],
+    }
+
+
+async def create_issue(
+    project_key: str,
+    issue_type: str,
+    summary: str,
+    description: str,
+    labels: list[str] | None = None,
+    parent_key: str | None = None,
+) -> JiraIssueResult:
+    """Create a Jira issue and return its key and browse URL."""
+    fields: dict[str, Any] = {
+        "project": {"key": project_key},
+        "issuetype": {"name": issue_type},
+        "summary": summary,
+        "description": _to_adf_doc(description),
+    }
+    if labels:
+        fields["labels"] = labels
+    if parent_key:
+        fields["parent"] = {"key": parent_key}
+    response = await _post("/rest/api/3/issue", {"fields": fields})
+    data = _ensure_ok(response)
+    key = str(data["key"])
+    base = settings.JIRA_BASE_URL.rstrip("/")
+    return JiraIssueResult(key=key, url=f"{base}/browse/{key}")
+
+
+async def _fetch_sprints_by_state(
+    board_id: int, state: str, max_results: int = 50
+) -> list[JiraSprintData]:
+    """Fetch sprints for a board filtered by state."""
+    sprints: list[JiraSprintData] = []
+    start_at = 0
+    while True:
+        response = await _agile_get(
+            f"/rest/agile/1.0/board/{board_id}/sprint",
+            params={"state": state, "startAt": start_at, "maxResults": max_results},
+        )
+        data = _ensure_ok(response)
+        values: list[dict[str, Any]] = data.get("values", [])
+        for s in values:
+            sprints.append(
+                JiraSprintData(
+                    sprint_id=int(s["id"]),
+                    label=str(s["name"]),
+                    state=str(s["state"]),
+                )
+            )
+        if data.get("isLast", True) or not values:
+            break
+        start_at += len(values)
+    return sprints
+
+
+async def fetch_sprints(board_id: int) -> list[JiraSprintData]:
+    """Return active and future sprints for a board (Agile API)."""
+    return await _fetch_sprints_by_state(board_id, "active,future")
+
+
+async def fetch_sprints_for_report(board_id: int) -> list[JiraSprintData]:
+    """Return sprints for Sprint Report: 2 recent closed + active + up to 2 future.
+
+    Sprints are returned ordered by sprint_id (chronological).
+    """
+    # Fetch each state separately
+    closed = await _fetch_sprints_by_state(board_id, "closed")
+    active = await _fetch_sprints_by_state(board_id, "active")
+    future = await _fetch_sprints_by_state(board_id, "future")
+
+    # closed: API returns oldest→newest; take the last 2
+    recent_closed = closed[-2:] if len(closed) >= 2 else closed
+
+    # future: take up to 2 (already oldest→newest)
+    upcoming = future[:2]
+
+    combined = recent_closed + active + upcoming
+    # Sort by sprint_id to ensure chronological order
+    combined.sort(key=lambda s: s.sprint_id)
+    return combined
+
+
+async def add_issue_to_sprint(sprint_id: int, issue_key: str) -> None:
+    """Move an issue into a sprint (Agile API)."""
+    response = await _post(
+        f"/rest/agile/1.0/sprint/{sprint_id}/issue",
+        {"issues": [issue_key]},
+        agile=True,
+    )
+    if response.status_code >= 400:
+        raise JiraIntegrationError(
+            f"Failed to add {issue_key} to sprint {sprint_id}: {response.status_code}"
+        )
+
+
+# ─── Sprint Report ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class SprintIssueData:
+    key: str
+    summary: str
+    issue_type: str
+    status: str
+    assignee_name: str | None
+    story_points: float | None
+    epic_key: str | None
+    epic_summary: str | None
+
+
+_SPRINT_ISSUE_FIELDS = (
+    "summary,issuetype,status,assignee,"
+    "customfield_10031,"  # story points (confirmed field ID for lunit.atlassian.net)
+    "customfield_10016,customfield_10028,customfield_10004,customfield_10008,"
+    "customfield_10030,customfield_10034,story_points,"
+    "parent,issuelinks"
+)
+
+# Story-points field IDs — customfield_10031 is confirmed for this Jira instance
+_SP_FIELD_IDS = (
+    "customfield_10031",  # confirmed: lunit.atlassian.net
+    "customfield_10016",
+    "customfield_10028",
+    "customfield_10004",
+    "customfield_10008",
+    "customfield_10030",
+    "customfield_10034",
+    "story_points",
+)
+
+
+def _parse_story_points(fields: dict[str, Any]) -> float | None:
+    for field in _SP_FIELD_IDS:
+        val = fields.get(field)
+        if val is not None:
+            try:
+                sp = float(val)
+                if sp >= 0:
+                    return sp
+            except (TypeError, ValueError):
+                continue
+    # Last resort: scan all customfield_* for a plausible numeric SP value
+    for key, val in fields.items():
+        if key.startswith("customfield_") and key not in _SP_FIELD_IDS:
+            if isinstance(val, (int, float)) and 0 < val <= 100:
+                return float(val)
+    return None
+
+
+def _parse_epic(fields: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Return (epic_key, epic_summary) from an issue's fields."""
+    parent = fields.get("parent") or {}
+    parent_type = (parent.get("fields") or {}).get("issuetype", {}).get("name", "")
+    if parent_type == "Epic":
+        return str(parent["key"]), str((parent.get("fields") or {}).get("summary", ""))
+    # Classic epic link field
+    epic_key = fields.get("customfield_10014")
+    if epic_key:
+        return str(epic_key), None
+    return None, None
+
+
+async def fetch_sprint_issues(sprint_id: int) -> list[SprintIssueData]:
+    """Return all issues in a sprint (Agile API), excluding sub-tasks."""
+    issues: list[SprintIssueData] = []
+    start_at = 0
+    while True:
+        response = await _agile_get(
+            f"/rest/agile/1.0/sprint/{sprint_id}/issue",
+            params={
+                "fields": _SPRINT_ISSUE_FIELDS,
+                "startAt": start_at,
+                "maxResults": 100,
+            },
+        )
+        data = _ensure_ok(response)
+        raw_issues: list[dict[str, Any]] = data.get("issues", [])
+        for raw in raw_issues:
+            fields = raw.get("fields") or {}
+            issue_type = (fields.get("issuetype") or {}).get("name", "")
+            if issue_type in ("Sub-task", "Subtask"):
+                continue
+            epic_key, epic_summary = _parse_epic(fields)
+            assignee = fields.get("assignee") or {}
+            issues.append(
+                SprintIssueData(
+                    key=str(raw["key"]),
+                    summary=str(fields.get("summary") or ""),
+                    issue_type=issue_type,
+                    status=str((fields.get("status") or {}).get("name", "")),
+                    assignee_name=assignee.get("displayName"),
+                    story_points=_parse_story_points(fields),
+                    epic_key=epic_key,
+                    epic_summary=epic_summary,
+                )
+            )
+        total = data.get("total", 0)
+        start_at += len(raw_issues)
+        if start_at >= total or not raw_issues:
+            break
+    return issues
+
+
+async def fetch_issue_fields(issue_key: str, fields: str) -> dict[str, Any]:
+    """Fetch a single issue and return its fields dict."""
+    response = await _get(f"/rest/api/3/issue/{issue_key}", params={"fields": fields})
+    if response.status_code == 404:
+        return {}
+    data = _ensure_ok(response)
+    return dict(data.get("fields") or {})
+
+
+async def resolve_initiative_from_epic(epic_key: str) -> str | None:
+    """
+    RAD Epic → any link to a PM-* ticket → parent Epic summary → initiative.
+
+    Searches all issue links (regardless of link type name) for a PM-* key.
+    Falls back to checking both outward and inward directions.
+    Returns None if the chain cannot be resolved.
+    """
+    epic_fields = await fetch_issue_fields(epic_key, "issuelinks")
+    if not epic_fields:
+        return None
+
+    pm_key: str | None = None
+    for link in epic_fields.get("issuelinks") or []:
+        for direction in ("outwardIssue", "inwardIssue"):
+            target = link.get(direction) or {}
+            key = str(target.get("key", ""))
+            if key.upper().startswith("PM-"):
+                pm_key = key
+                break
+        if pm_key:
+            break
+
+    if not pm_key:
+        return None
+
+    pm_fields = await fetch_issue_fields(pm_key, "parent")
+    if not pm_fields:
+        return None
+
+    parent = pm_fields.get("parent") or {}
+    parent_summary = ((parent.get("fields") or {}).get("summary") or "").strip()
+    return parent_summary if parent_summary else None
+
+
+async def fetch_project_versions(project_key: str) -> list[JiraVersionData]:
+    """Return non-archived Fix Versions for a single project (with releaseDate)."""
+    now = datetime.now(UTC)
+    versions: list[JiraVersionData] = []
+    start_at = 0
+    while True:
+        response = await _get(
+            f"/rest/api/3/project/{project_key}/version",
+            params={"startAt": start_at, "maxResults": 50, "orderBy": "-releaseDate"},
+        )
+        data = _ensure_ok(response)
+        values: list[dict[str, Any]] = data.get("values", [])
+        for v in values:
+            if v.get("archived"):
+                continue
+            versions.append(
+                JiraVersionData(
+                    jira_id=str(v["id"]),
+                    label=str(v["name"]),
+                    synced_at=now,
+                    release_date=v.get("releaseDate") or None,
+                )
+            )
+        if data.get("isLast", True) or not values:
+            break
+        start_at += len(values)
+    return versions
+
+
+# ─── Version Assignment ───────────────────────────────────────────────────────
+
+_PERIOD_JQL_MAP = {
+    "15d": "15d",
+    "1m": "30d",
+    "2m": "60d",
+    "3m": "90d",
+}
+
+
+@dataclass
+class UnversionedTicketData:
+    key: str
+    summary: str
+    status: str
+    epic_key: str | None
+    epic_summary: str | None
+
+
+async def fetch_unversioned_tickets(
+    project_key: str,
+    period: str,
+) -> list[UnversionedTicketData]:
+    """Return non-Epic tickets with no fix version."""
+    jql_period = _PERIOD_JQL_MAP.get(period, "30d")
+    jql = (
+        f"project = {project_key} AND fixVersion is EMPTY "
+        f"AND issuetype != Epic "
+        f"AND updated >= -{jql_period} "
+        f"ORDER BY created DESC"
+    )
+    tickets: list[UnversionedTicketData] = []
+    next_token: str | None = None
+    while True:
+        params: dict[str, Any] = {
+            "jql": jql,
+            "fields": "summary,status,parent,issuetype",
+            "maxResults": 100,
+        }
+        if next_token:
+            params["nextPageToken"] = next_token
+        response = await _get("/rest/api/3/search/jql", params=params)
+        data = _ensure_ok(response)
+        issues: list[dict[str, Any]] = data.get("issues", [])
+        for issue in issues:
+            fields = issue.get("fields") or {}
+            epic_key, epic_summary = _parse_epic(fields)
+            tickets.append(
+                UnversionedTicketData(
+                    key=str(issue["key"]),
+                    summary=str(fields.get("summary") or ""),
+                    status=str((fields.get("status") or {}).get("name", "")),
+                    epic_key=epic_key,
+                    epic_summary=epic_summary,
+                )
+            )
+        next_token = data.get("nextPageToken")
+        if data.get("isLast", True) or not next_token:
+            break
+    return tickets
+
+
+async def assign_fix_version(issue_key: str, version_id: str) -> None:
+    """Append a fix version to a Jira issue without removing existing versions."""
+    body: dict[str, Any] = {
+        "update": {
+            "fixVersions": [{"add": {"id": version_id}}]
+        }
+    }
+    response = await _put(f"/rest/api/3/issue/{issue_key}", body)
+    if response.status_code >= 400:
+        raise JiraIntegrationError(
+            f"Failed to assign version {version_id} to {issue_key}: {response.status_code}"
+        )

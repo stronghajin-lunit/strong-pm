@@ -22,21 +22,25 @@ PM 업무 자동화 도구. 핵심 기능 묶음:
 
 ## 현재 작업
 
-> 마지막 업데이트: 2026-05-31
+> 마지막 업데이트: 2026-06-08
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| 프론트엔드 페이지 11종 구현 | 🟡 진행 중 | 다수 변경분 미커밋 (브랜치 `feature/ui-prd-jira-writer`) |
-| 백엔드 레이어 구조 + 도메인 4종 | 🟡 진행 중 | **전체 git untracked — 커밋 이력 없음** |
-| 백엔드 테스트 보강 | 🔴 미흡 | `test_health.py` 1개뿐 (절대규칙 #2 위반 상태) |
-| `apps/backend/` git 커밋 정리 | 🔲 대기 | 논리 단위로 분할 커밋 필요 |
+| Jira Ticket Writer API 구현 (BE) | ✅ 완료 | model/schema/crud/service/endpoint + 마이그레이션 + 테스트 |
+| Jira Ticket Writer 프론트 연동 | ✅ 완료 | mock 제거, 실 API 연동, 스프린트 API 연동 |
+| Jira Ticket Writer Project 드롭다운 | ✅ 완료 | Epic을 parent로 설정하는 Project 선택 드롭다운 추가 |
+| Sprint Report Creator 드롭다운 개선 | ✅ 완료 | active±2 스프린트만 표시하도록 필터링 |
+| haiku 모델 최적화 | ✅ 완료 | action phrase에 haiku 사용, sprint report 예시 페이지 제거 |
+| 백엔드 섹션 포맷 수정 | ✅ 완료 | Target User = User Definition 불릿 + User Story 3열 테이블, scope 섹션 간결화 |
+| Release Note Creator '반영' 버튼 제거 | 🔲 대기 | 프론트+백엔드 전체 제거 필요 (유저 확인 완료) |
+| 백엔드 테스트 보강 | 🔴 미흡 | 로컬 DB 미실행으로 실행 불가 (greenlet+postgres 환경 이슈) |
 | `.gitignore` 정리 | 🔲 대기 | `.next/`, `node_modules/`, `.DS_Store`, `.env.local` 노출 |
 
 ### 다음 우선순위
 
-1. 백엔드 `.gitignore` 점검 후 논리 단위 커밋 (모델/스키마/CRUD/서비스/엔드포인트)
-2. 백엔드 도메인별 테스트 추가 (Service 90% / Repo 90% / Router 80% 목표)
-3. 프론트 변경분 커밋 정리 및 PR
+1. Release Note Creator '반영' 기능 전체 제거 (프론트 + 백엔드)
+2. 현 브랜치 커밋 정리 후 PR (`feature/frontend-and-docker-deps`)
+3. 백엔드 도메인별 테스트 (DB 환경 구동 후)
 
 ---
 
@@ -73,9 +77,10 @@ PM 업무 자동화 도구. 핵심 기능 묶음:
 | 도메인 | Model | Schema | CRUD | Service | Endpoint | 테스트 |
 |--------|:-----:|:------:|:----:|:-------:|:--------:|:------:|
 | deployment | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| release_note | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| release_note | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | jira_version | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| jira_ticket | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| jira_ticket (캐시) | ✅ | — | ✅ | — | — | — |
+| jira_ticket_run | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | repo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 - [x] Alembic 초기 마이그레이션 (`031f265fd4c5_initial_schema`)

@@ -29,9 +29,24 @@ class Settings(BaseSettings):
 
     # AI (Anthropic Claude) — release-note generation.
     ANTHROPIC_API_KEY: str = ""
-    AI_MODEL: str = "claude-opus-4-8"
+    AI_MODEL: str = "claude-sonnet-4-6"          # complex tasks (PRD, Feature List, etc.)
+    AI_MODEL_FAST: str = "claude-haiku-4-5-20251001"  # simple tasks (action phrase, etc.)
     # Optional Anthropic-compatible gateway base URL; empty = public Anthropic API.
     ANTHROPIC_BASE_URL: str = ""
+
+    # Jira Ticket Writer — project key used when creating issues (default: RAD).
+    JIRA_TICKET_PROJECT_KEY: str = "RAD"
+    # Version Assignment — JQL project identifier for unversioned ticket search.
+    # Can be a project key (e.g. "RAD") or name (e.g. "[AIP] Onco Space").
+    JIRA_VERSION_ASSIGN_PROJECT: str = "RAD"
+    # Board IDs per product for sprint lookup via Agile API.
+    # Format: "ODM=123,Annotation Admin=456,Annotation Tool=789"
+    JIRA_BOARD_IDS: str = ""
+
+    # Sprint Report Creator — Onco board ID for sprint list + issue fetch.
+    JIRA_SPRINT_BOARD_ID: int = 0
+    # Confluence page used as few-shot example for AI generation.
+    CONFLUENCE_SPRINT_EXAMPLE_PAGE_ID: str = "5400365750"
 
     @property
     def allowed_origins_list(self) -> list[str]:
@@ -40,6 +55,21 @@ class Settings(BaseSettings):
     @property
     def jira_project_keys_list(self) -> list[str]:
         return [k.strip() for k in self.JIRA_PROJECT_KEYS.split(",") if k.strip()]
+
+    @property
+    def jira_board_ids_map(self) -> dict[str, int]:
+        """Parse 'Product=boardId,...' into {product: boardId}."""
+        result: dict[str, int] = {}
+        for pair in self.JIRA_BOARD_IDS.split(","):
+            pair = pair.strip()
+            if "=" not in pair:
+                continue
+            product, _, board_id_str = pair.partition("=")
+            try:
+                result[product.strip()] = int(board_id_str.strip())
+            except ValueError:
+                continue
+        return result
 
 
 settings = Settings()

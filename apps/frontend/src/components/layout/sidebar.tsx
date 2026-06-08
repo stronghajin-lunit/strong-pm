@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProjectStore } from '@/stores/project-store'
 import { useUIStore } from '@/stores/ui-store'
 import { Badge } from '@/components/ui/badge'
@@ -10,10 +10,16 @@ import { Badge } from '@/components/ui/badge'
 export function Sidebar() {
   const pathname = usePathname()
   const projects = useProjectStore((s) => s.projects)
+  const loadProjects = useProjectStore((s) => s.loadProjects)
   const openNewProjectModal = useUIStore((s) => s.openNewProjectModal)
   const [isReleasesOpen, setIsReleasesOpen] = useState(true)
   const [isPMOpen, setIsPMOpen] = useState(true)
   const [isArchiveOpen, setIsArchiveOpen] = useState(false)
+
+  // Load projects once on mount so any page shows the sidebar project list
+  useEffect(() => {
+    if (projects.length === 0) void loadProjects()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeProjects = projects.filter((p) => p.status !== 'done')
   const archivedProjects = projects.filter((p) => p.status === 'done')
@@ -236,6 +242,19 @@ export function Sidebar() {
                 <line x1="5" y1="6" x2="11" y2="6" />
                 <line x1="5" y1="9" x2="9" y2="9" />
                 <line x1="5" y1="12" x2="7" y2="12" />
+              </svg>
+            </NavItem>
+            <NavItem
+              href="/feature-list-writer"
+              label="Feature List Writer"
+              active={isActive('/feature-list-writer')}
+              sub
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="2" y="2" width="12" height="12" rx="1" />
+                <line x1="5" y1="6" x2="11" y2="6" />
+                <line x1="5" y1="9" x2="9" y2="9" />
+                <line x1="5" y1="12" x2="8" y2="12" />
               </svg>
             </NavItem>
             <NavItem

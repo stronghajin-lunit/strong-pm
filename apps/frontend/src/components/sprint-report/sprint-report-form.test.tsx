@@ -1,113 +1,108 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, within, act, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import * as sprintReportsApi from '@/api/sprint-reports'
 import { SprintReportForm } from './sprint-report-form'
-import type { SprintOption } from '@/types/sprint'
+import type { SprintOption, SprintRunRecord } from '@/types/sprint'
 
 const MOCK_SPRINT_OPTIONS: SprintOption[] = [
-  { id: 'sp-14', label: 'Sprint 14', projectName: 'Payment Module Refactor', status: 'active' },
-  { id: 'sp-13', label: 'Sprint 13', projectName: 'Payment Module Refactor', status: 'done' },
+  { sprintId: 101, sprintNumber: 79, label: 'Onco Sprint 79', status: 'active' },
+  { sprintId: 100, sprintNumber: 78, label: 'Onco Sprint 78', status: 'closed' },
 ]
 
-// fake timer가 필요한 테스트는 userEvent 대신 fireEvent를 사용한다.
-// userEvent는 내부적으로 Promise 기반 타이밍을 사용해 vi.useFakeTimers()와 충돌한다.
+const MOCK_RECORD: SprintRunRecord = {
+  id: 'sr-1',
+  sprintLabel: 'Onco Sprint 79',
+  requestedAt: '2026-06-01 10:00',
+  completedAt: '2026-06-01 10:03',
+  status: 'done',
+  confluenceUrl: 'https://lunit.atlassian.net/wiki/spaces/AIP/pages/99999',
+}
 
-afterEach(() => {
-  vi.useRealTimers()
+vi.mock('@/api/sprint-reports', () => ({
+  fetchSprintOptions: vi.fn(),
+  fetchSprintReports: vi.fn(),
+  runSprintReport: vi.fn(),
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(sprintReportsApi.runSprintReport).mockResolvedValue(MOCK_RECORD)
 })
 
 describe('SprintReportForm', () => {
   describe('기본 렌더링', () => {
-    it('Sprint 셀렉트와 Run 버튼을 렌더링한다', () => {
+    it('Sprint 셀렉트, Confluence URL 입력, Run 버튼을 렌더링한다', () => {
       render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
-
       expect(screen.getByTestId('sprint-select')).toBeInTheDocument()
+      expect(screen.getByTestId('confluence-url-input')).toBeInTheDocument()
       expect(screen.getByTestId('run-btn')).toBeInTheDocument()
     })
 
-    it('셀렉트에 모든 스프린트 옵션을 렌더링한다', () => {
+    it('셀렉트에 스프린트 목록을 렌더링한다', () => {
       render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
-
-      const select = screen.getByTestId('sprint-select')
-      expect(within(select).getByText(/Sprint 14/)).toBeInTheDocument()
-      expect(within(select).getByText(/Sprint 13/)).toBeInTheDocument()
+      expect(screen.getByText(/Onco Sprint 79/)).toBeInTheDocument()
+      expect(screen.getByText(/Onco Sprint 78/)).toBeInTheDocument()
     })
   })
 
-  describe('Run 버튼', () => {
-    it('스프린트가 선택되지 않은 경우 Run 버튼이 비활성화된다', () => {
-      // Given
+  describe('Run 버튼 활성화 조건', () => {
+    it('sprint와 URL 모두 비어 있으면 Run 버튼이 비활성화된다', () => {
       render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
-
-      // Then
       expect(screen.getByTestId('run-btn')).toBeDisabled()
     })
 
-    it('스프린트를 선택하면 Run 버튼이 활성화된다', async () => {
-      // Given
+    it('sprint만 선택하면 Run 버튼이 비활성화된다', () => {
       render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
+      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
+      expect(screen.getByTestId('run-btn')).toBeDisabled()
+    })
 
-      // When
-      await userEvent.selectOptions(screen.getByTestId('sprint-select'), 'sp-14')
-
-      // Then
+    it('sprint + URL 모두 입력하면 Run 버튼이 활성화된다', async () => {
+      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
+      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
+      await userEvent.type(
+        screen.getByTestId('confluence-url-input'),
+        'https://lunit.atlassian.net/wiki/spaces/AIP/pages/99999',
+      )
       expect(screen.getByTestId('run-btn')).not.toBeDisabled()
     })
   })
 
   describe('Run 실행', () => {
-    it('Run 클릭 시 버튼이 비활성화되고 Running... 텍스트를 표시한다', () => {
-      // Given
-      vi.useFakeTimers()
+    it('Run 클릭 시 Running... 상태가 된다', async () => {
+      vi.mocked(sprintReportsApi.runSprintReport).mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve(MOCK_RECORD), 100)),
+      )
       render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
-      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: 'sp-14' } })
-
-      // When
+      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
+      fireEvent.change(screen.getByTestId('confluence-url-input'), {
+        target: { value: 'https://lunit.atlassian.net/wiki/pages/99999' },
+      })
       fireEvent.click(screen.getByTestId('run-btn'))
-
-      // Then
-      expect(screen.getByTestId('run-btn')).toBeDisabled()
       expect(screen.getByTestId('run-btn')).toHaveTextContent('Running...')
     })
 
-    it('2.5초 후 onRunComplete가 Done 레코드와 함께 호출된다', () => {
-      // Given
-      vi.useFakeTimers()
+    it('Run 성공 시 onRunComplete가 record와 함께 호출된다', async () => {
       const onRunComplete = vi.fn()
       render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} onRunComplete={onRunComplete} />)
-      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: 'sp-14' } })
+      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
+      fireEvent.change(screen.getByTestId('confluence-url-input'), {
+        target: { value: 'https://lunit.atlassian.net/wiki/pages/99999' },
+      })
       fireEvent.click(screen.getByTestId('run-btn'))
-
-      expect(onRunComplete).not.toHaveBeenCalled()
-
-      // When: 2.5초 경과
-      act(() => { vi.advanceTimersByTime(2500) })
-
-      // Then
-      expect(onRunComplete).toHaveBeenCalledTimes(1)
-      expect(onRunComplete).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sprintLabel: 'Sprint 14',
-          projectName: 'Payment Module Refactor',
-          status: 'done',
-          confluenceUrl: '#',
-        }),
-      )
+      await waitFor(() => expect(onRunComplete).toHaveBeenCalledWith(MOCK_RECORD))
     })
 
-    it('Run 후 1초에는 onRunComplete가 아직 호출되지 않는다', () => {
-      // Given
-      vi.useFakeTimers()
-      const onRunComplete = vi.fn()
-      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} onRunComplete={onRunComplete} />)
-      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: 'sp-14' } })
+    it('Run 실패 시 에러 메시지가 표시된다', async () => {
+      vi.mocked(sprintReportsApi.runSprintReport).mockRejectedValue(new Error('JIRA_UPSTREAM_ERROR'))
+      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
+      fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
+      fireEvent.change(screen.getByTestId('confluence-url-input'), {
+        target: { value: 'https://lunit.atlassian.net/wiki/pages/99999' },
+      })
       fireEvent.click(screen.getByTestId('run-btn'))
-
-      // When: 1초만 경과
-      act(() => { vi.advanceTimersByTime(1000) })
-
-      // Then
-      expect(onRunComplete).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.getByTestId('run-error')).toBeInTheDocument())
     })
   })
 })

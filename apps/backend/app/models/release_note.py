@@ -15,7 +15,6 @@ class ReleaseNote(Base):
     confluence_location: Mapped[str] = mapped_column(String(500), nullable=False)
     confluence_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(10), nullable=False)
-    reflection: Mapped[str | None] = mapped_column(Text, nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

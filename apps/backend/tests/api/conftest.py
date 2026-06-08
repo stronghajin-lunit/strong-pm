@@ -8,18 +8,25 @@ This conftest applies only to tests under tests/api/, so the integration tests
 still call the real functions.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from app.core.config import settings
 from app.integrations import ai as ai_integration
 from app.integrations import confluence as confluence_integration
 from app.integrations import jira as jira_integration
-from app.integrations.ai import ReleaseNoteContent
+from app.integrations.ai import JiraTicketAction, ReleaseNoteContent
 from app.integrations.confluence import ConfluencePublishResult
-from app.integrations.jira import JiraTicketData, JiraVersionData
+from app.integrations.jira import (
+    JiraIssueResult,
+    JiraSprintData,
+    JiraTicketData,
+    JiraVersionData,
+    SprintIssueData,
+)
 
-_SYNCED_AT = datetime(2026, 4, 1, tzinfo=timezone.utc)
+_SYNCED_AT = datetime(2026, 4, 1, tzinfo=UTC)
 
 _STUB_VERSIONS: list[JiraVersionData] = [
     JiraVersionData("aicp-0401", "AICP Monthly 26-04-01", _SYNCED_AT),
@@ -85,4 +92,107 @@ def stub_ai(monkeypatch: pytest.MonkeyPatch) -> None:
         lines = "\n".join(f"- {t.ticket_id}: {t.title}" for t in tickets)
         return ReleaseNoteContent(body=f"## {jira_version_label}\n\n### Changes\n\n{lines}\n")
 
+    async def _generate_ticket_action(feature_description: str) -> JiraTicketAction:
+        return JiraTicketAction(action="Add License Field to Block Registration Form")
+
+    async def _generate_ticket_description(
+        feature_description: str, definition_of_done: str, issue_type: str
+    ) -> str:
+        return (
+            "Context\n"
+            "Add a license field to the block registration form so users can associate "
+            "a license with each block.\n\n"
+            "DoD\n"
+            "- [ ] License dropdown is displayed on the block registration form\n"
+            "- [ ] Selected license_id is sent to POST /api/v1/blocks"
+        )
+
     monkeypatch.setattr(ai_integration, "generate_release_note", _generate_release_note)
+    monkeypatch.setattr(ai_integration, "generate_ticket_action", _generate_ticket_action)
+    monkeypatch.setattr(
+        ai_integration, "generate_ticket_description", _generate_ticket_description
+    )
+
+
+_STUB_SPRINTS: list[JiraSprintData] = [
+    JiraSprintData(sprint_id=101, label="Onco Sprint 79", state="active"),
+    JiraSprintData(sprint_id=100, label="Onco Sprint 78", state="future"),
+]
+
+_STUB_ISSUE = JiraIssueResult(key="RAD-9999", url="https://lunit.atlassian.net/browse/RAD-9999")
+
+
+@pytest.fixture(autouse=True)
+def stub_jira_ticket_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _create_issue(
+        project_key: str,
+        issue_type: str,
+        summary: str,
+        description: str,
+        labels: list[str] | None = None,
+    ) -> JiraIssueResult:
+        return _STUB_ISSUE
+
+    async def _fetch_sprints(board_id: int) -> list[JiraSprintData]:
+        return list(_STUB_SPRINTS)
+
+    async def _add_issue_to_sprint(sprint_id: int, issue_key: str) -> None:
+        return None
+
+    monkeypatch.setattr(jira_integration, "create_issue", _create_issue)
+    monkeypatch.setattr(jira_integration, "fetch_sprints", _fetch_sprints)
+    monkeypatch.setattr(jira_integration, "add_issue_to_sprint", _add_issue_to_sprint)
+    monkeypatch.setattr(settings, "JIRA_BOARD_IDS", "ODM=42,Annotation Admin=43,Annotation Tool=44")
+
+
+_STUB_SPRINT_ISSUES: list[SprintIssueData] = [
+    SprintIssueData(
+        key="RAD-100", summary="Build TMA Registration Page",
+        issue_type="Story", status="Done",
+        assignee_name="Hajin Lee", story_points=3.0,
+        epic_key="RAD-90", epic_summary="TMA Module",
+    ),
+    SprintIssueData(
+        key="RAD-101", summary="Add license field to block form",
+        issue_type="Task", status="Done",
+        assignee_name="Yiseul Kwon", story_points=2.0,
+        epic_key="RAD-90", epic_summary="TMA Module",
+    ),
+]
+
+
+@pytest.fixture(autouse=True)
+def stub_sprint_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _fetch_sprint_issues(sprint_id: int) -> list[SprintIssueData]:
+        return list(_STUB_SPRINT_ISSUES)
+
+    async def _resolve_initiative_from_epic(epic_key: str) -> str | None:
+        return "[Onco] Core Platform"
+
+    async def _fetch_page_storage(page_id: str) -> str:
+        return "<table><tbody><tr><td>Example</td></tr></tbody></table>"
+
+    async def _generate_sprint_report(
+        sprint_label: str,
+        week_number: int,
+        grouped_data: list[dict],
+        total_sp: float,
+        example_page_storage: str,
+    ) -> str:
+        return "<table><tbody><tr><td>Core Platform</td><td>TMA Module</td></tr></tbody></table>"
+
+    async def _update_sprint_report(page_id: str, content_storage: str) -> object:
+        from app.integrations.confluence import ConfluencePublishResult
+        return ConfluencePublishResult(
+            confluence_location="AIP / Week19 Sprint 80 Report",
+            confluence_url="https://example.atlassian.net/wiki/spaces/AIP/pages/99999",
+        )
+
+    monkeypatch.setattr(jira_integration, "fetch_sprint_issues", _fetch_sprint_issues)
+    monkeypatch.setattr(
+        jira_integration, "resolve_initiative_from_epic", _resolve_initiative_from_epic
+    )
+    monkeypatch.setattr(confluence_integration, "fetch_page_storage", _fetch_page_storage)
+    monkeypatch.setattr(ai_integration, "generate_sprint_report", _generate_sprint_report)
+    monkeypatch.setattr(confluence_integration, "update_sprint_report", _update_sprint_report)
+    monkeypatch.setattr(settings, "JIRA_SPRINT_BOARD_ID", 324)

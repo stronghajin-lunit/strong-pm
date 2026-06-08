@@ -1,51 +1,62 @@
 'use client'
 
-import { useState } from 'react'
-import type { Project, RelatedProduct } from '@/types/project'
+import { useEffect, useState } from 'react'
+import { fetchProducts } from '@/api/products'
+import type { ProductOption } from '@/api/products'
 import { useProjectStore } from '@/stores/project-store'
 
 interface NewProjectModalProps {
   onClose: () => void
 }
 
-const PRODUCTS: RelatedProduct[] = ['ODM', 'Annotation Admin', 'Annotation Tool']
-
 export function NewProjectModal({ onClose }: NewProjectModalProps) {
   const addProject = useProjectStore((s) => s.addProject)
 
-  const [name, setName]                         = useState('')
-  const [epicLink, setEpicLink]                 = useState('')
-  const [confluenceLink, setConfluenceLink]     = useState('')
-  const [relatedProducts, setRelatedProducts]   = useState<RelatedProduct[]>([])
-  const [background, setBackground]             = useState('')
-  const [hlr, setHlr]                           = useState('')
+  const [name, setName]               = useState('')
+  const [epicLink, setEpicLink]       = useState('')
+  const [confluenceLink, setConfluenceLink] = useState('')
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
+  const [background, setBackground]   = useState('')
+  const [hlr, setHlr]                 = useState('')
+  const [products, setProducts]       = useState<ProductOption[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError]             = useState<string | null>(null)
 
-  const canSubmit = name.trim() !== '' && epicLink.trim() !== '' && confluenceLink.trim() !== '' && relatedProducts.length > 0
+  useEffect(() => {
+    void fetchProducts().then(setProducts)
+  }, [])
 
-  const toggleProduct = (product: RelatedProduct) => {
-    setRelatedProducts((prev) =>
-      prev.includes(product) ? prev.filter((p) => p !== product) : [...prev, product]
+  const canSubmit =
+    name.trim() !== '' &&
+    epicLink.trim() !== '' &&
+    confluenceLink.trim() !== '' &&
+    selectedProductIds.length > 0
+
+  const toggleProduct = (id: number) => {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     )
   }
 
-  const handleSubmit = () => {
-    if (!canSubmit) return
-
-    const newProject: Project = {
-      id: `proj-${Date.now()}`,
-      name: name.trim(),
-      description: background.trim() || hlr.trim() || '',
-      status: 'not_started',
-      epicLink: epicLink.trim(),
-      confluenceLink: confluenceLink.trim(),
-      relatedProducts,
-      background: background.trim() || undefined,
-      hlr: hlr.trim() || undefined,
-      updatedAt: 'just now',
+  const handleSubmit = async () => {
+    if (!canSubmit || isSubmitting) return
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      await addProject({
+        name: name.trim(),
+        epic_link: epicLink.trim() || undefined,
+        confluence_link: confluenceLink.trim() || undefined,
+        product_ids: selectedProductIds,
+        background: background.trim() || undefined,
+        hlr: hlr.trim() || undefined,
+      })
+      onClose()
+    } catch {
+      setError('Failed to create project. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
-
-    addProject(newProject)
-    onClose()
   }
 
   return (
@@ -80,7 +91,6 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* Project Name */}
           <Field label="Project Name" required>
             <input
               type="text"
@@ -89,15 +99,10 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Payment Module Refactor"
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
-              style={{
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border-md)',
-                color: 'var(--text-1)',
-              }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
             />
           </Field>
 
-          {/* Epic Link */}
           <Field label="Epic Link" required>
             <input
               type="url"
@@ -106,16 +111,15 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
               onChange={(e) => setEpicLink(e.target.value)}
               placeholder="https://lunit.atlassian.net/browse/RAD-000"
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
-              style={{
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border-md)',
-                color: 'var(--text-1)',
-              }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
             />
           </Field>
 
-          {/* Project Confluence Link */}
-          <Field label="Project Confluence Link" required hint="Top-level project document link. Used by AI to understand project context.">
+          <Field
+            label="Project Confluence Link"
+            required
+            hint="Top-level project document. AI will crawl this page and all child pages for project context."
+          >
             <input
               type="url"
               data-testid="confluence-link-input"
@@ -123,11 +127,7 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
               onChange={(e) => setConfluenceLink(e.target.value)}
               placeholder="https://lunit.atlassian.net/wiki/spaces/..."
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
-              style={{
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border-md)',
-                color: 'var(--text-1)',
-              }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
             />
           </Field>
 
@@ -135,22 +135,19 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
           <div>
             <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
               Related Product{' '}
-              <span
-                className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
-                style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
-              >
+              <span className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
                 Required
               </span>
             </label>
             <div className="flex gap-2 flex-wrap" data-testid="related-products">
-              {PRODUCTS.map((product) => {
-                const selected = relatedProducts.includes(product)
+              {products.map((product) => {
+                const selected = selectedProductIds.includes(product.id)
                 return (
                   <button
-                    key={product}
+                    key={product.id}
                     type="button"
-                    data-testid={`product-toggle-${product}`}
-                    onClick={() => toggleProduct(product)}
+                    data-testid={`product-toggle-${product.name}`}
+                    onClick={() => toggleProduct(product.id)}
                     className="px-3 py-[6px] rounded-[6px] text-[12px] font-medium border transition-all"
                     style={
                       selected
@@ -158,14 +155,13 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
                         : { background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border-md)' }
                     }
                   >
-                    {product}
+                    {product.name}
                   </button>
                 )
               })}
             </div>
           </div>
 
-          {/* Background */}
           <Field label="Background">
             <textarea
               data-testid="background-input"
@@ -174,15 +170,10 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
               placeholder="Describe the background and reason this project is needed."
               rows={3}
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none resize-none"
-              style={{
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border-md)',
-                color: 'var(--text-1)',
-              }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
             />
           </Field>
 
-          {/* High Level Requirement */}
           <Field label="High Level Requirement">
             <textarea
               data-testid="hlr-input"
@@ -191,14 +182,16 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
               placeholder="Describe the key requirements this project needs to achieve."
               rows={3}
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none resize-none"
-              style={{
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border-md)',
-                color: 'var(--text-1)',
-              }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
             />
           </Field>
         </div>
+
+        {error && (
+          <p className="text-[12px] mt-3 px-3 py-2 rounded-[8px]" style={{ background: '#FAECE7', color: '#993C1D' }}>
+            {error}
+          </p>
+        )}
 
         {/* Footer */}
         <div className="flex justify-end gap-2 mt-5">
@@ -214,12 +207,12 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
           <button
             type="button"
             data-testid="modal-submit-btn"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
+            onClick={() => { void handleSubmit() }}
+            disabled={!canSubmit || isSubmitting}
             className="px-4 py-[8px] rounded-[8px] text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: 'var(--accent)' }}
           >
-            Create Project
+            {isSubmitting ? 'Creating…' : 'Create Project'}
           </button>
         </div>
       </div>
@@ -240,20 +233,13 @@ function Field({ label, required, hint, children }: FieldProps) {
       <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
         {label}{' '}
         {required && (
-          <span
-            className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
-            style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
-          >
+          <span className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
             Required
           </span>
         )}
       </label>
       {children}
-      {hint && (
-        <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
-          {hint}
-        </p>
-      )}
+      {hint && <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{hint}</p>}
     </div>
   )
 }

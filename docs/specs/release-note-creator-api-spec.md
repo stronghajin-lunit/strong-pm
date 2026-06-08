@@ -137,8 +137,7 @@ GET /api/v1/release-notes
       "requested_at": "2026-03-21 14:02",
       "completed_at": "2026-03-21 14:05",
       "status": "done",
-      "confluence_url": "https://lunit.atlassian.net/wiki/spaces/...",
-      "reflection": "버그 픽스 항목 서술 방식 변경. 다음 릴리즈부터 PR 링크 포함."
+      "confluence_url": "https://lunit.atlassian.net/wiki/spaces/..."
     }
   ]
 }
@@ -154,52 +153,6 @@ GET /api/v1/release-notes
 | `notes[].completed_at`       | string \| null | 완료 시각 `YYYY-MM-DD HH:mm` (UI: Completed 컬럼). 미완료 시 `null`  |
 | `notes[].status`             | string         | `running` \| `done` \| `error` (UI: Status 컬럼)                   |
 | `notes[].confluence_url`     | string \| null | Confluence 페이지 URL (UI: Link 컬럼). 실패 시 `null`               |
-| `notes[].reflection`         | string \| null | 적용된 피드백 메모 (UI: Applied 아코디언). 없으면 `null`              |
-
----
-
-### 4. 피드백 메모 저장 (Apply)
-
-**생성된 릴리즈 노트에 대한 피드백 메모를 저장합니다.**  
-UI의 "Apply" 버튼 → Chat Panel에서 작성 확정 시 호출됩니다. 한 번 저장 후 수정 불가.
-
-```
-PATCH /api/v1/release-notes/{id}/reflection
-```
-
-#### Path Parameters
-
-| Parameter | Type   | Description         |
-|-----------|--------|---------------------|
-| `id`      | string | 릴리즈 노트 이력 ID  |
-
-#### Request Body
-
-```json
-{
-  "reflection": "버그 픽스 항목 서술 방식 변경. 다음 릴리즈부터 PR 링크 포함."
-}
-```
-
-| Field        | Type   | Required | Description          |
-|--------------|--------|----------|----------------------|
-| `reflection` | string | ✅        | 저장할 피드백 메모 내용 |
-
-#### Response `200 OK`
-
-```json
-{
-  "id": "rn-1",
-  "reflection": "버그 픽스 항목 서술 방식 변경. 다음 릴리즈부터 PR 링크 포함."
-}
-```
-
-#### Error Responses
-
-| Status | Code        | Description                              |
-|--------|-------------|------------------------------------------|
-| `404`  | `NOT_FOUND` | 해당 ID의 이력이 없음                     |
-| `409`  | `CONFLICT`  | 이미 피드백이 저장됨 (중복 저장 불가)      |
 
 ---
 
