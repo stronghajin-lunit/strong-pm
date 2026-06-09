@@ -9,3 +9,4 @@ from app.models.jira_version import JiraVersion  # noqa: F401
 from app.models.release_note import ReleaseNote, ReleaseNoteTicket  # noqa: F401
 from app.models.repo import Repo  # noqa: F401
 from app.models.sprint_report import SprintReport  # noqa: F401
+from app.models.slack_qa_item import SlackQaItem  # noqa: F401

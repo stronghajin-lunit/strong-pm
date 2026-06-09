@@ -708,3 +708,77 @@ async def publish_release_note(
         confluence_location=confluence_location,
         confluence_url=confluence_url,
     )
+
+
+def _append_qa_row(storage: str, question: str, answer: str, answer_date: str) -> str:
+    """Append a new row to the Q&A table in the storage XML.
+
+    The Q&A section must exist as a heading (h1–h4) containing 'Q&A' or 'Q & A'
+    followed by a table with columns Question / Answer / Answer date.
+    Returns the modified storage, or raises ConfluenceIntegrationError if not found.
+    """
+    qa_heading = re.search(
+        r"<h[1-4][^>]*>.*?Q\s*(?:&amp;|&)\s*A.*?</h[1-4]>",
+        storage,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not qa_heading:
+        raise ConfluenceIntegrationError(
+            "Q&A section not found in PRD page. "
+            "Please add a 'Q&A' heading with a table (Question | Answer | Answer date)."
+        )
+
+    # Find first </tbody> after the Q&A heading
+    tbody_end = storage.find("</tbody>", qa_heading.end())
+    if tbody_end == -1:
+        raise ConfluenceIntegrationError("Q&A table not found after Q&A heading.")
+
+    new_row = (
+        f"<tr>"
+        f"<td><p>{html.escape(question)}</p></td>"
+        f"<td><p>{html.escape(answer)}</p></td>"
+        f"<td><p>{html.escape(answer_date)}</p></td>"
+        f"</tr>"
+    )
+    return storage[:tbody_end] + new_row + storage[tbody_end:]
+
+
+async def update_prd_qa_table(
+    page_id: str,
+    question: str,
+    answer: str,
+    answer_date: str,
+) -> str:
+    """Append one row to the Q&A table in a PRD Confluence page. Returns the page URL."""
+    _require_config()
+
+    try:
+        get_resp = await _get_client().get(
+            f"/api/v2/pages/{page_id}", params={"body-format": "storage"}
+        )
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    page_data = _ensure_ok(get_resp)
+
+    current_version: int = (page_data.get("version") or {}).get("number", 1)
+    title: str = str(page_data.get("title", "PRD"))
+    existing_storage: str = (page_data.get("body") or {}).get("storage", {}).get("value", "")
+
+    updated = _append_qa_row(existing_storage, question, answer, answer_date)
+
+    payload = {
+        "id": page_id,
+        "status": "current",
+        "title": title,
+        "version": {"number": current_version + 1},
+        "body": {"representation": "storage", "value": updated},
+    }
+    try:
+        put_resp = await _get_client().put(f"/api/v2/pages/{page_id}", json=payload)
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(put_resp)
+
+    webui = str(data.get("_links", {}).get("webui", ""))
+    site = settings.JIRA_BASE_URL.rstrip("/")
+    return f"{site}/wiki{webui}" if webui else f"{site}/wiki/pages/{page_id}"

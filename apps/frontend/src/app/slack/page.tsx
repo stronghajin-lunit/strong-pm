@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { SlackFilterBar } from '@/components/slack/slack-filter-bar'
 import { SlackItem } from '@/components/slack/slack-item'
 import { useUIStore } from '@/stores/ui-store'
 import { useProjectStore } from '@/stores/project-store'
-import { MOCK_SLACK_ITEMS } from '@/mocks/slack'
+import { fetchSlackQaItems, linkSlackQaItem, pushToPrd } from '@/api/slack'
 import type { SlackFilter, SlackItem as SlackItemType } from '@/types/slack'
 
 export default function SlackPage() {
@@ -13,32 +13,57 @@ export default function SlackPage() {
   const projects = useProjectStore((s) => s.projects)
 
   const [filter, setFilter] = useState<SlackFilter>('all')
-  const [items, setItems] = useState<SlackItemType[]>(MOCK_SLACK_ITEMS)
+  const [items, setItems] = useState<SlackItemType[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
+  const [pushingId, setPushingId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setTopbarTitle('Slack Q&A Linker')
   }, [setTopbarTitle])
 
-  const handleLink = (itemId: string, projectId: string | null) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, linkedProjectId: projectId } : item,
-      ),
-    )
+  const loadItems = useCallback(async () => {
+    try {
+      const data = await fetchSlackQaItems()
+      setItems(data)
+    } catch {
+      setError('Failed to load Slack Q&A items')
+    }
+  }, [])
+
+  useEffect(() => {
+    loadItems()
+  }, [loadItems])
+
+  const handleLink = async (itemId: number, projectId: number | null) => {
+    try {
+      const updated = await linkSlackQaItem(itemId, projectId)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+    } catch {
+      setError('Failed to link project')
+    }
   }
 
-  const handleArchive = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, archived: true } : item,
-      ),
-    )
+  const handlePushToPrd = async (itemId: number) => {
+    setPushingId(itemId)
+    setError(null)
+    try {
+      const updated = await pushToPrd(itemId)
+      setItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to push to PRD')
+    } finally {
+      setPushingId(null)
+    }
   }
 
-  const handleSync = () => {
+  const handleSync = async () => {
     setIsSyncing(true)
-    setTimeout(() => setIsSyncing(false), 1200)
+    try {
+      await loadItems()
+    } finally {
+      setIsSyncing(false)
+    }
   }
 
   const filteredItems = items.filter((item) => {
@@ -56,12 +81,15 @@ export default function SlackPage() {
         className="flex items-center gap-[10px] px-5 h-[46px] shrink-0"
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
       >
-        <div className="text-[13px] font-semibold flex items-center gap-1" style={{ color: '#4A154B' }}>
+        <div
+          className="text-[13px] font-semibold flex items-center gap-1"
+          style={{ color: '#4A154B' }}
+        >
           <span className="text-[16px] font-bold opacity-70">#</span>
-          private-onco-squad
+          private-onco-squad · DMs
         </div>
         <div className="text-[11px] flex-1" style={{ color: 'var(--text-3)' }}>
-          Channel messages & DMs tagged with :strong-pm: · auto-collected
+          Messages tagged with :strong_pm: · run /project:slack-sync in Claude Code to import
         </div>
         <button
           type="button"
@@ -87,9 +115,26 @@ export default function SlackPage() {
             <path d="M1 8a7 7 0 1 0 1.5-4.3" />
             <polyline points="1,2 1,6 5,6" />
           </svg>
-          Sync
+          Refresh
         </button>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div
+          className="px-5 py-2 text-[12px]"
+          style={{ background: '#FEF2F2', color: '#DC2626', borderBottom: '1px solid #FCA5A5' }}
+        >
+          {error}
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter bar */}
       <SlackFilterBar
@@ -103,7 +148,10 @@ export default function SlackPage() {
         {filter === 'archived' && filteredItems.length === 0 && (
           <div
             className="rounded-[12px] p-[40px_20px] text-center"
-            style={{ background: 'var(--surface)', border: '1px dashed var(--border-md)' }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px dashed var(--border-md)',
+            }}
             data-testid="empty-state"
           >
             <svg
@@ -119,7 +167,10 @@ export default function SlackPage() {
               <rect x="1" y="4" width="14" height="10" rx="1" />
               <path d="M1 4h14M6 8h4" />
             </svg>
-            <p className="text-[13px] font-medium mb-1" style={{ color: 'var(--text-3)' }}>
+            <p
+              className="text-[13px] font-medium mb-1"
+              style={{ color: 'var(--text-3)' }}
+            >
               No archived items yet
             </p>
             <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
@@ -134,7 +185,9 @@ export default function SlackPage() {
             style={{ color: 'var(--text-3)' }}
             data-testid="empty-state"
           >
-            No messages
+            {items.length === 0
+              ? 'No items yet — run /project:slack-sync in Claude Code to import'
+              : 'No messages'}
           </div>
         )}
 
@@ -143,10 +196,10 @@ export default function SlackPage() {
             key={item.id}
             item={item}
             projects={projects}
-            linkedProjectId={item.linkedProjectId}
             onLink={handleLink}
-            onArchive={handleArchive}
+            onPushToPrd={handlePushToPrd}
             isArchived={filter === 'archived'}
+            isPushing={pushingId === item.id}
           />
         ))}
       </div>

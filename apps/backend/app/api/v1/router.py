@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     products,
     projects,
     release_notes,
+    slack_qa,
     sprint_reports,
     version_assignment,
 )
@@ -29,3 +30,4 @@ api_router.include_router(products.router, prefix="/products", tags=["products"]
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(prd.router, prefix="/prd", tags=["prd"])
 api_router.include_router(feature_list.router, prefix="/feature-list", tags=["feature-list"])
+api_router.include_router(slack_qa.router, prefix="/slack-qa", tags=["slack-qa"])

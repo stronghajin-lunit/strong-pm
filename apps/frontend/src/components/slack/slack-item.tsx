@@ -4,15 +4,23 @@ import type { Project } from '@/types/project'
 interface SlackItemProps {
   item: SlackItemType
   projects: Project[]
-  linkedProjectId: string | null
-  onLink: (itemId: string, projectId: string | null) => void
-  onArchive: (itemId: string) => void
+  onLink: (itemId: number, projectId: number | null) => void
+  onPushToPrd: (itemId: number) => void
   isArchived?: boolean
+  isPushing?: boolean
 }
 
-export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, isArchived = false }: SlackItemProps) {
-  const isLinked = linkedProjectId !== null
-  const aiProject = projects.find((p) => p.id === item.aiProjectId)
+export function SlackItem({
+  item,
+  projects,
+  onLink,
+  onPushToPrd,
+  isArchived = false,
+  isPushing = false,
+}: SlackItemProps) {
+  const isLinked = item.linkedProjectId !== null
+  const aiProject = projects.find((p) => p.id === String(item.aiProjectId))
+  const senderInitial = item.senderName.charAt(0).toUpperCase()
 
   return (
     <div
@@ -30,17 +38,19 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, 
           style={{ background: '#4A154B' }}
           aria-hidden="true"
         >
-          {item.user}
+          {senderInitial}
         </div>
         <div className="flex-1">
-          <span className="text-[12px] font-semibold">{item.name}</span>
+          <span className="text-[12px] font-semibold">{item.senderName}</span>
           <span className="text-[11px] ml-[6px]" style={{ color: 'var(--text-3)' }}>
-            {item.time}
+            {item.answerDate}
+          </span>
+          <span className="text-[11px] ml-[6px]" style={{ color: 'var(--text-3)' }}>
+            #{item.slackChannelName}
           </span>
         </div>
-        {/* Slack original link */}
         <a
-          href={item.messageUrl}
+          href={item.slackMessageUrl}
           target="_blank"
           rel="noreferrer"
           data-testid={`slack-item-link-${item.id}`}
@@ -49,37 +59,62 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, 
           title="View original message in Slack"
         >
           <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
-            <path d="M6 3a1 1 0 0 0 0 2h.5l-3 3a1 1 0 1 0 1.414 1.414l3-3V7a1 1 0 0 0 2 0V3H6z"/>
-            <path d="M3 9a1 1 0 0 0-1 1v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2a1 1 0 0 0-2 0v2H4v-2a1 1 0 0 0-1-1z"/>
+            <path d="M6 3a1 1 0 0 0 0 2h.5l-3 3a1 1 0 1 0 1.414 1.414l3-3V7a1 1 0 0 0 2 0V3H6z" />
+            <path d="M3 9a1 1 0 0 0-1 1v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2a1 1 0 0 0-2 0v2H4v-2a1 1 0 0 0-1-1z" />
           </svg>
           Slack에서 보기
         </a>
       </div>
 
-      {/* AI Summary — immediately below header */}
+      {/* AI Summary */}
       <div
         data-testid={`slack-item-summary-${item.id}`}
         className="ml-[42px] mb-[10px] rounded-[8px] px-[12px] py-[10px]"
         style={{ background: '#F5F3FF', border: '1px solid #DDD6FE' }}
       >
         <div className="flex items-center gap-[5px] mb-[6px]">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="11" height="11" style={{ color: '#6D28D9' }}>
-            <circle cx="8" cy="8" r="6" /><path d="M8 5v3l2 2" />
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            width="11"
+            height="11"
+            style={{ color: '#6D28D9' }}
+          >
+            <circle cx="8" cy="8" r="6" />
+            <path d="M8 5v3l2 2" />
           </svg>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em]" style={{ color: '#6D28D9' }}>
+          <span
+            className="text-[11px] font-semibold uppercase tracking-[0.05em]"
+            style={{ color: '#6D28D9' }}
+          >
             AI Summary
           </span>
         </div>
         <div className="flex gap-[6px] mb-[4px]">
-          <span className="text-[11px] font-bold shrink-0 mt-[1px]" style={{ color: '#6D28D9' }}>Q</span>
-          <p className="text-[11px] leading-[1.5]" style={{ color: 'var(--text-1)' }}>
-            {item.summary.question}
+          <span
+            className="text-[11px] font-bold shrink-0 mt-[1px]"
+            style={{ color: '#6D28D9' }}
+          >
+            Q
+          </span>
+          <p
+            className="text-[11px] leading-[1.5] whitespace-pre-line"
+            style={{ color: 'var(--text-1)' }}
+          >
+            {item.question}
           </p>
         </div>
         <div className="flex gap-[6px]">
-          <span className="text-[11px] font-bold shrink-0 mt-[1px]" style={{ color: '#6D28D9' }}>A</span>
+          <span
+            className="text-[11px] font-bold shrink-0 mt-[1px]"
+            style={{ color: '#6D28D9' }}
+          >
+            A
+          </span>
           <p className="text-[11px] leading-[1.5]" style={{ color: 'var(--text-2)' }}>
-            {item.summary.answer}
+            {item.answer}
           </p>
         </div>
       </div>
@@ -98,14 +133,29 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, 
         >
           {aiProject ? (
             <>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
-                <circle cx="8" cy="8" r="6" /><path d="M5 8l2 2 4-4" />
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                width="10"
+                height="10"
+              >
+                <circle cx="8" cy="8" r="6" />
+                <path d="M5 8l2 2 4-4" />
               </svg>
               AI suggests: {aiProject.name}
             </>
           ) : (
             <>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                width="10"
+                height="10"
+              >
                 <circle cx="8" cy="8" r="6" />
                 <line x1="8" y1="5" x2="8" y2="8" />
                 <circle cx="8" cy="11" r=".5" fill="currentColor" />
@@ -118,15 +168,21 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, 
         {/* Project link select */}
         <select
           data-testid={`slack-item-select-${item.id}`}
-          value={linkedProjectId ?? ''}
-          onChange={(e) => onLink(item.id, e.target.value !== '' ? e.target.value : null)}
+          value={item.linkedProjectId ?? ''}
+          onChange={(e) =>
+            onLink(item.id, e.target.value !== '' ? Number(e.target.value) : null)
+          }
           className="rounded-[6px] px-2 py-[5px] text-[12px] outline-none cursor-pointer min-w-[180px] transition-colors"
           style={
             isLinked
               ? { border: '1px solid var(--teal)', background: 'var(--teal-light)', color: 'var(--teal)' }
-              : { border: '1px solid var(--border-md)', background: 'var(--surface-2)', color: 'var(--text-1)' }
+              : {
+                  border: '1px solid var(--border-md)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--text-1)',
+                }
           }
-          aria-label={`Link ${item.name}'s message to a project`}
+          aria-label={`Link ${item.senderName}'s message to a project`}
         >
           <option value="">— Select project —</option>
           {projects.map((project) => (
@@ -136,29 +192,40 @@ export function SlackItem({ item, projects, linkedProjectId, onLink, onArchive, 
           ))}
         </select>
 
-        {/* Reflect to PRD Q&A button — hidden for archived items */}
+        {/* Push to PRD Q&A button */}
         {!isArchived && (
           <button
             type="button"
             data-testid={`slack-item-archive-btn-${item.id}`}
-            disabled={!isLinked}
-            onClick={() => onArchive(item.id)}
+            disabled={!isLinked || isPushing}
+            onClick={() => onPushToPrd(item.id)}
             className="ml-auto flex items-center gap-[5px] px-[12px] py-[5px] rounded-[6px] text-[11px] font-semibold transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
             style={
               isLinked
                 ? { background: 'var(--teal)', color: '#fff', border: '1px solid var(--teal)' }
-                : { background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border-md)' }
+                : {
+                    background: 'var(--surface-2)',
+                    color: 'var(--text-3)',
+                    border: '1px solid var(--border-md)',
+                  }
             }
             title={isLinked ? 'Apply to PRD Q&A and archive' : 'Please link a project first'}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
-              <path d="M2 11V13h2l7-7-2-2z" /><path d="M12.5 3.5l-1-1a1 1 0 0 0-1.4 0L9 3.6l2 2z" />
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              width="10"
+              height="10"
+            >
+              <path d="M2 11V13h2l7-7-2-2z" />
+              <path d="M12.5 3.5l-1-1a1 1 0 0 0-1.4 0L9 3.6l2 2z" />
             </svg>
-            → PRD Q&A
+            {isPushing ? 'Pushing…' : '→ PRD Q&A'}
           </button>
         )}
       </div>
     </div>
   )
 }
-
