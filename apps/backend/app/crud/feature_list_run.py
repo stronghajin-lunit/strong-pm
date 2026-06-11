@@ -55,3 +55,13 @@ async def fail(db: AsyncSession, run: FeatureListRun) -> FeatureListRun:
 async def list_all(db: AsyncSession) -> list[FeatureListRun]:
     result = await db.execute(select(FeatureListRun).order_by(FeatureListRun.id.desc()))
     return list(result.scalars().all())
+
+
+async def find_latest_by_page_url(db: AsyncSession, feature_list_page_url: str) -> FeatureListRun | None:
+    result = await db.execute(
+        select(FeatureListRun)
+        .where(FeatureListRun.feature_list_page_url == feature_list_page_url)
+        .order_by(FeatureListRun.id.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()

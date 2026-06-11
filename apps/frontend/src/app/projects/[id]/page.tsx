@@ -11,6 +11,8 @@ import { syncProjectContext, fetchProjectContext } from '@/api/projects'
 import type { ProjectContext } from '@/api/projects'
 import { fetchPrdRuns } from '@/api/prd'
 import type { PrdRunRecord } from '@/types/prd'
+import { fetchFeatureListRuns } from '@/api/feature-list'
+import type { FeatureListRun } from '@/api/feature-list'
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,6 +29,7 @@ export default function ProjectDetailPage() {
   const [context, setContext] = useState<ProjectContext | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [prdRuns, setPrdRuns] = useState<PrdRunRecord[]>([])
+  const [featureListRuns, setFeatureListRuns] = useState<FeatureListRun[]>([])
 
   useEffect(() => {
     setTopbarTitle(project?.name ?? 'Project')
@@ -36,6 +39,7 @@ export default function ProjectDetailPage() {
     if (id) {
       void fetchProjectContext(id).then(setContext).catch(() => null)
       void fetchPrdRuns().then((runs) => setPrdRuns(runs.filter((r) => r.projectId === id))).catch(() => null)
+      void fetchFeatureListRuns().then((runs) => setFeatureListRuns(runs.filter((r) => r.projectId === id))).catch(() => null)
     }
   }, [id])
 
@@ -142,40 +146,14 @@ export default function ProjectDetailPage() {
             </a>
           )}
 
-          {/* Context status + Sync button */}
-          <div className="flex items-center gap-[6px] ml-[4px]">
-            {context?.syncedAt ? (
+          {/* Context status */}
+          {context?.syncedAt && (
+            <div className="flex items-center gap-[6px] ml-[4px]">
               <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
                 Context synced {context.syncedAt} · {context.pageCount} page{context.pageCount !== 1 ? 's' : ''}
               </span>
-            ) : (
-              <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-                {isSyncing ? 'Syncing context…' : 'No context yet'}
-              </span>
-            )}
-            {project.confluenceLink && (
-              <button
-                type="button"
-                onClick={() => { void handleSync() }}
-                disabled={isSyncing}
-                className="flex items-center gap-[4px] text-[11px] font-medium px-[8px] py-[3px] rounded-[5px] transition-opacity hover:opacity-80 disabled:opacity-40"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-2)' }}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  width="10"
-                  height="10"
-                  className={isSyncing ? 'animate-spin' : ''}
-                >
-                  <path d="M13 8A5 5 0 1 1 8 3M13 3v5h-5" />
-                </svg>
-                Sync
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -191,7 +169,7 @@ export default function ProjectDetailPage() {
         />
       </div>
 
-      <StepContent step={selectedStep} isDone={isDone} project={project} linkedPrs={linkedPrs} prdRecords={prdRuns} />
+      <StepContent step={selectedStep} isDone={isDone} project={project} linkedPrs={linkedPrs} prdRecords={prdRuns} featureListRuns={featureListRuns} />
 
       {showDoneModal && (
         <DoneModal
@@ -215,12 +193,13 @@ interface StepContentProps {
   project: Project
   linkedPrs: PullRequest[]
   prdRecords: PrdRunRecord[]
+  featureListRuns: FeatureListRun[]
 }
 
-function StepContent({ step, isDone, project, linkedPrs, prdRecords }: StepContentProps) {
+function StepContent({ step, isDone, project, linkedPrs, prdRecords, featureListRuns }: StepContentProps) {
   if (step === 1) return <KickoffPanel project={project} />
   if (step === 2) return <PrdPanel prdRecords={prdRecords} confluenceLink={project.confluenceLink} />
-  if (step === 3) return <PlaceholderPanel title="Feature List" message="Feature planning is not yet available in this version." />
+  if (step === 3) return <FeatureListPanel runs={featureListRuns} />
   if (step === 4) return <DevelopmentPanel linkedPrs={linkedPrs} />
   if (step === 5) {
     if (isDone) {
@@ -299,14 +278,56 @@ function PrdPanel({ prdRecords, confluenceLink }: { prdRecords: PrdRunRecord[]; 
   )
 }
 
+function FeatureListPanel({ runs }: { runs: FeatureListRun[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {runs.length === 0 ? (
+        <div className="rounded-[12px] p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
+            No Feature List runs yet for this project. Go to{' '}
+            <a href="/feature-list-writer" className="underline" style={{ color: 'var(--accent)' }}>Feature List Writer</a> to generate one.
+          </p>
+        </div>
+      ) : (
+        runs.map((run) => (
+          <div key={run.id} className="rounded-[12px] p-[14px_16px]" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between mb-[6px]">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--text-1)' }}>Feature List Run</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{run.requestedAt}</span>
+            </div>
+            <div className="flex items-center gap-[8px]">
+              <span className="text-[11px] font-medium px-[7px] py-[2px] rounded-[6px]" style={run.status === 'done' ? { background: '#EFF6FF', color: '#1E40AF' } : { background: '#FAEEDA', color: '#854F0B' }}>
+                {run.status === 'done' ? 'Done' : run.status === 'error' ? 'Error' : 'Running'}
+              </span>
+              {run.featureCount != null && (
+                <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{run.featureCount} features</span>
+              )}
+              {run.confluenceUrl && (
+                <a href={run.confluenceUrl} target="_blank" rel="noreferrer" className="text-[11px] font-medium transition-opacity hover:opacity-70" style={{ color: 'var(--accent)' }}>
+                  View Feature List ↗
+                </a>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+      <div className="rounded-[10px] px-[14px] py-[10px] flex items-center gap-[8px]" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="12" height="12" style={{ color: 'var(--text-3)' }}>
+          <circle cx="8" cy="8" r="6" /><line x1="8" y1="5" x2="8" y2="8" /><circle cx="8" cy="11" r=".5" fill="currentColor" />
+        </svg>
+        <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Once the Feature List is generated and reviewed, mark this step complete.</p>
+      </div>
+    </div>
+  )
+}
+
 function DevelopmentPanel({ linkedPrs }: { linkedPrs: PullRequest[] }) {
   return (
     <div className="flex flex-col gap-3">
       {linkedPrs.length === 0 ? (
         <div className="rounded-[12px] p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
-            No PRs linked to this project yet. Link PRs from the{' '}
-            <a href="/pr-tracker" className="underline" style={{ color: 'var(--accent)' }}>PR Tracker</a>.
+            No PRs linked to this project yet.
           </p>
         </div>
       ) : (

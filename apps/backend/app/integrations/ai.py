@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import anthropic
 
+from app.core.ai_model_config import get_model
 from app.core.config import settings
 from app.integrations.jira import JiraTicketData
 
@@ -32,6 +33,16 @@ _SYSTEM_PROMPT = (
     "into one bullet. Do NOT include the version label as a heading, an intro/preamble, "
     "HTML entities (use a plain '-' dash), or code fences. Output only the Markdown body."
 )
+
+
+@dataclass
+class FeatureListContextConfig:
+    project_summary_position: str = "beginning"
+    project_summary_char_limit: int = 1500
+    prd_pages_position: str = "middle"
+    prd_pages_char_limit: int = 10000
+    reference_docs_position: str = "end"
+    reference_docs_char_limit: int = 10000
 
 
 @dataclass
@@ -87,7 +98,7 @@ async def generate_release_note(
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=get_model("release_note_creator"),
             max_tokens=_MAX_TOKENS,
             thinking={"type": "disabled"},
             system=[
@@ -183,7 +194,7 @@ async def generate_ticket_description(
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=get_model("jira_ticket_writer"),
             max_tokens=512,
             thinking={"type": "disabled"},
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
@@ -228,32 +239,56 @@ Feature rules:
 - Dependencies: use "F-NN" referencing the final sorted position. Use "-" if none.
 - Note: "[TBD - source unclear]" when uncertain; empty string otherwise.
 - Terminology: "page" → "UI", "API endpoint" → "API", "AICP" → "Annotation Admin".
+- When [HIGH-PRIORITY REFERENCE] sections appear in the context, treat them as primary specification sources; their content takes precedence over and supplements the PRD pages.
 - Extract all meaningful features; do not pad with trivial items.\
 """
+
+
+_POSITION_ORDER = {"beginning": 0, "middle": 1, "end": 2}
 
 
 async def generate_feature_list(
     project_name: str,
     source_pages: list[dict[str, str]],
     project_context: str,
+    reference_pages: list[dict[str, str]] | None = None,
+    context_config: FeatureListContextConfig | None = None,
 ) -> dict:
     """Generate Feature List overview + features from PRD source pages."""
     import json as _json
 
     client = _get_client()
+    cfg = context_config or FeatureListContextConfig()
 
-    pages_text = "\n\n".join(
-        f"=== {p['title']} ===\n{p['content'][:3000]}" for p in source_pages
-    )
-    user_content = (
+    summary_block = (
         f"Project: {project_name}\n\n"
-        f"=== Project Context ===\n{project_context[:1500]}\n\n"
-        f"=== PRD Source Pages ===\n{pages_text}"
+        f"=== Project Context ===\n{project_context[:cfg.project_summary_char_limit]}"
     )
+
+    prd_raw = "\n\n".join(f"=== {p['title']} ===\n{p['content']}" for p in source_pages)
+    prd_block = f"=== PRD Source Pages ===\n{prd_raw[:cfg.prd_pages_char_limit]}"
+
+    ref_block: str | None = None
+    if reference_pages:
+        ref_raw = "\n\n".join(
+            f"=== [HIGH-PRIORITY REFERENCE] {p['title']} ===\n{p['content']}"
+            for p in reference_pages
+        )
+        ref_block = f"=== Reference Documents ===\n{ref_raw[:cfg.reference_docs_char_limit]}"
+
+    blocks: list[tuple[int, str]] = [
+        (_POSITION_ORDER.get(cfg.project_summary_position, 0), summary_block),
+        (_POSITION_ORDER.get(cfg.prd_pages_position, 1), prd_block),
+    ]
+    if ref_block is not None:
+        blocks.append((_POSITION_ORDER.get(cfg.reference_docs_position, 2), ref_block))
+    blocks.sort(key=lambda x: x[0])
+
+    user_content = "\n\n".join(text for _, text in blocks)
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=get_model("feature_list_writer"),
             max_tokens=4096,
             thinking={"type": "disabled"},
             system=[{"type": "text", "text": _FEATURE_LIST_SYSTEM,
@@ -373,7 +408,7 @@ async def generate_prd_sections(
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=get_model("prd_writer"),
             max_tokens=4096,
             thinking={"type": "disabled"},
             system=[{"type": "text", "text": _PRD_SYSTEM, "cache_control": {"type": "ephemeral"}}],
@@ -404,6 +439,18 @@ _PROJECT_CONTEXT_SYSTEM = (
     "Max 600 words. Plain text only — no Markdown headers or bullet markers."
 )
 
+_SINGLE_PAGE_CONTEXT_SYSTEM = (
+    "You are a technical PM assistant summarising a single Confluence page "
+    "for a software project's engineering context.\n"
+    "\n"
+    "Write 2–4 sentences capturing what matters for engineers and PMs: "
+    "purpose, key decisions, requirements, current status, and constraints.\n"
+    "\n"
+    "Write in English. Be specific and factual. "
+    "Plain text only — no Markdown, no bullet points. "
+    "Do not restate the page title in your summary."
+)
+
 
 async def summarize_project_context(
     project_name: str,
@@ -422,7 +469,7 @@ async def summarize_project_context(
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=get_model("project_context_sync"),
             max_tokens=1024,
             thinking={"type": "disabled"},
             system=[
@@ -441,6 +488,82 @@ async def summarize_project_context(
     if not result:
         raise AIIntegrationError("Anthropic returned empty project context")
     return result
+
+
+async def summarize_single_page(
+    project_name: str,
+    page_title: str,
+    page_content: str,
+) -> str:
+    """Summarise a single Confluence page into 2–4 sentences."""
+    client = _get_client()
+    if not page_content.strip():
+        raise AIIntegrationError(f"Page '{page_title}' has no content to summarise")
+
+    user_content = f"Project: {project_name}\nPage: {page_title}\n\n{page_content}"
+
+    try:
+        response = await client.messages.create(
+            model=get_model("project_context_sync"),
+            max_tokens=256,
+            thinking={"type": "disabled"},
+            system=[
+                {
+                    "type": "text",
+                    "text": _SINGLE_PAGE_CONTEXT_SYSTEM,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    result = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not result:
+        raise AIIntegrationError(f"Anthropic returned empty summary for page '{page_title}'")
+    return result
+
+
+_TRANSLATE_KO_SYSTEM = (
+    "Translate the following English project context into Korean.\n"
+    "Keep all proper nouns, product names, and technical terms in English.\n"
+    "Use natural, professional Korean. Plain text only — no Markdown."
+)
+
+
+async def _translate_chunk(client: anthropic.AsyncAnthropic, chunk: str) -> str:
+    """Translate a single text chunk to Korean."""
+    try:
+        response = await client.messages.create(
+            model=get_model("project_context_sync"),
+            max_tokens=4096,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": _TRANSLATE_KO_SYSTEM,
+                     "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": chunk}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    result = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not result:
+        raise AIIntegrationError("Anthropic returned empty Korean translation")
+    return result
+
+
+async def translate_context_to_korean(context: str) -> str:
+    """Translate English project context to Korean, section by section."""
+    client = _get_client()
+
+    # Split on section boundaries (## heading) so each chunk fits in one API call
+    raw_sections = context.split("\n\n## ")
+    sections: list[str] = []
+    for i, s in enumerate(raw_sections):
+        sections.append(s if i == 0 else f"## {s}")
+
+    translated = [await _translate_chunk(client, s) for s in sections if s.strip()]
+    return "\n\n".join(translated)
 
 
 _SPRINT_REPORT_SYSTEM = """\
@@ -497,7 +620,7 @@ async def generate_sprint_report(
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL,
+            model=get_model("sprint_report_creator"),
             max_tokens=4096,
             thinking={"type": "disabled"},
             system=[{"type": "text", "text": _SPRINT_REPORT_SYSTEM,
@@ -513,13 +636,143 @@ async def generate_sprint_report(
     return result
 
 
+_APPLY_COMMENTS_SYSTEM = """\
+You are a technical PM assistant. You will receive a Feature List and a list of Confluence comments.
+Your job is to produce a minimal set of changes that exactly reflect what the comments request.
+
+How to identify which feature a comment refers to:
+- If the comment includes [anchored to: "..."], that is the exact text selected in the Confluence page when the comment was written. Match it to the feature whose name, description, or ID contains that text.
+- If the comment explicitly mentions a feature ID (F-01, F-02, ...) or feature name, use that.
+- If both are present, use the anchored text for matching.
+
+Rules (CRITICAL — follow exactly):
+- ONLY produce changes for features that are directly identified by a comment using the matching rules above.
+- Each change you output MUST correspond to exactly one comment. If you cannot point to a specific comment that requests the change, do NOT output it.
+- For "update" actions: change only the specific fields indicated by the comment. Leave all other fields untouched.
+- For "delete" actions: remove that feature.
+- Do NOT change features that are not mentioned in any comment — even if you think a change would be beneficial.
+- Do NOT rewrite or paraphrase existing field values unless the comment explicitly asks for a change to that field.
+- Do NOT infer or guess changes beyond what the comment literally requests.
+
+Transformation rules (apply ONLY when a comment explicitly requests a transformation):
+- "Note로 이동" / "move to Note" with anchored text: write a concise, human-readable sentence in the "note" field that captures what the anchored text implies should be noted. Do NOT copy the raw anchored text verbatim — synthesize it into a clear note.
+- "Description으로 이동" / "move to Description": synthesize the anchored text into a clear description sentence.
+- Similar transformation comments: use the anchored text as input context and write a clean, synthesized value for the target field.
+
+IMPORTANT: Output ONLY the raw JSON array. No explanation, no markdown, no text before or after. Start your response with [ and end with ].
+Each element must have one of these shapes:
+  { "action": "update", "feature_id": "F-01", "changes": { "<field>": "<new value>" } }
+  { "action": "delete", "feature_id": "F-03" }
+
+Valid field names for "changes": name, category, description, priority, complexity, dependencies, note
+Priority values must be exactly: "Must Have", "Should Have", or "Nice to Have"
+Complexity values must be exactly: "S", "M", or "L"
+If a comment cannot be matched to any feature, skip it.
+If you are uncertain whether a comment requests a change to a feature, skip it — do NOT guess.\
+"""
+
+
+@dataclass
+class FeatureChange:
+    action: str  # "update" or "delete"
+    feature_id: str
+    changes: dict[str, str]  # empty for delete
+
+
+async def apply_feature_comments(
+    features: list[dict],
+    comments: list[str],
+) -> list[FeatureChange]:
+    """Parse Confluence comments and return minimal feature changes."""
+    import json as _json
+
+    client = _get_client()
+
+    features_text = _json.dumps(features, ensure_ascii=False, indent=2)
+    comments_text = "\n".join(f"- {c}" for c in comments)
+    user_content = (
+        f"=== Current Feature List ===\n{features_text}\n\n"
+        f"=== Comments to Apply ===\n{comments_text}"
+    )
+
+    try:
+        response = await client.messages.create(
+            model=get_model("feature_list_writer"),
+            max_tokens=2048,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": _APPLY_COMMENTS_SYSTEM,
+                     "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    raw = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not raw:
+        raise AIIntegrationError("Anthropic returned empty feature changes")
+
+    try:
+        data = _json.loads(raw)
+    except _json.JSONDecodeError:
+        # Try each '[' position until we find a valid JSON array
+        data = None
+        pos = 0
+        while True:
+            start = raw.find("[", pos)
+            if start == -1:
+                break
+            # Walk to matching ']'
+            depth = 0
+            end = -1
+            in_string = False
+            escape_next = False
+            for i, ch in enumerate(raw[start:], start):
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == "\\" and in_string:
+                    escape_next = True
+                    continue
+                if ch == '"':
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == "[":
+                    depth += 1
+                elif ch == "]":
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+            if end == -1:
+                break
+            try:
+                data = _json.loads(raw[start : end + 1])
+                break  # parsed successfully
+            except _json.JSONDecodeError:
+                pos = start + 1  # try next '[' position
+        if data is None:
+            raise AIIntegrationError("Could not parse feature changes JSON from AI response")
+
+    return [
+        FeatureChange(
+            action=item["action"],
+            feature_id=item["feature_id"],
+            changes=item.get("changes", {}),
+        )
+        for item in data
+        if item.get("action") in ("update", "delete") and item.get("feature_id")
+    ]
+
+
 async def generate_ticket_action(feature_description: str) -> JiraTicketAction:
     """Generate a verb+feature_name action phrase for the Jira summary (uses fast/cheap model)."""
     client = _get_client()
 
     try:
         response = await client.messages.create(
-            model=settings.AI_MODEL_FAST,
+            model=get_model("jira_ticket_writer"),
             max_tokens=64,
             thinking={"type": "disabled"},
             system=[
@@ -538,3 +791,72 @@ async def generate_ticket_action(feature_description: str) -> JiraTicketAction:
     if not action:
         raise AIIntegrationError("Anthropic returned empty action phrase")
     return JiraTicketAction(action=action)
+
+
+_SLACK_QA_SYSTEM = (
+    "You are a product manager assistant. Extract the Q&A from the provided Slack conversation.\n"
+    "\n"
+    "Rules:\n"
+    "- question: the question(s) asked. If multiple questions, use bullet points starting with '• '. "
+    "Always write in English, translating from Korean if needed.\n"
+    "- answer: a concise summary of the answer. Always write in English, translating from Korean if needed.\n"
+    "- ai_project_name: the most relevant project name from the provided list, or null if unclear.\n"
+    "\n"
+    "Return ONLY a JSON object with exactly these keys: question, answer, ai_project_name.\n"
+    "No markdown fences, no extra text."
+)
+
+
+@dataclass
+class SlackQaSummary:
+    question: str
+    answer: str
+    ai_project_name: str | None
+
+
+async def summarize_slack_thread(
+    raw_messages: list[str],
+    project_names: list[str],
+) -> SlackQaSummary:
+    """Summarize a Slack thread into Q&A using the fast/cheap model."""
+    import json as _json
+
+    client = _get_client()
+
+    conversation = "\n".join(f"- {m}" for m in raw_messages)
+    projects_hint = ", ".join(project_names) if project_names else "none"
+    user_content = (
+        f"Available projects: {projects_hint}\n\n"
+        f"Slack conversation:\n{conversation}"
+    )
+
+    try:
+        response = await client.messages.create(
+            model=get_model("slack_qa_summary"),
+            max_tokens=512,
+            thinking={"type": "disabled"},
+            system=[{"type": "text", "text": _SLACK_QA_SYSTEM,
+                     "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
+        )
+    except anthropic.AnthropicError as exc:
+        raise AIIntegrationError(f"Anthropic request failed: {exc}") from exc
+
+    raw = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not raw:
+        raise AIIntegrationError("Anthropic returned empty Slack Q&A summary")
+
+    try:
+        data = _json.loads(raw)
+    except _json.JSONDecodeError:
+        import re as _re
+        m = _re.search(r"\{.*\}", raw, _re.DOTALL)
+        if not m:
+            raise AIIntegrationError("Could not parse Slack Q&A JSON from AI response")
+        data = _json.loads(m.group(0))
+
+    return SlackQaSummary(
+        question=data.get("question", ""),
+        answer=data.get("answer", ""),
+        ai_project_name=data.get("ai_project_name"),
+    )

@@ -271,20 +271,21 @@ def _build_priority_macro(priority: str) -> str:
     return build_priority_macro(priority)
 
 
-def _build_feature_row(feature: dict, show_category: bool) -> str:
-    """Build a Confluence storage <tr> for one feature."""
+def _build_feature_row(feature: dict, show_category: bool, col_names: list[str]) -> str:
+    """Build a Confluence storage <tr> for one feature, matching the actual header columns."""
     category = feature["category"] if show_category else ""
     priority_cell = _build_priority_macro(feature["priority"])
-    cells = [
-        feature["id"],
-        category,
-        feature["name"],
-        feature["description"],
-        priority_cell,
-        feature["complexity"],
-        feature.get("dependencies", "-"),
-        feature.get("note", ""),
-    ]
+    col_value_map: dict[str, str] = {
+        "id": feature["id"],
+        "feature category": category,
+        "feature name": feature["name"],
+        "description": feature["description"],
+        "priority": priority_cell,
+        "complexity": feature.get("complexity", ""),
+        "dependencies": feature.get("dependencies", "-"),
+        "note": feature.get("note", ""),
+    }
+    cells = [col_value_map.get(name, "") for name in col_names]
     tds = "".join(
         f'<td ac:local-id="{_make_uuid()}"><p>{c}</p></td>' for c in cells
     )
@@ -344,6 +345,18 @@ def _update_feature_list_table(storage: str, features: list[dict]) -> str:
     if not header_rows:
         header_rows = all_rows[:1]
 
+    # Parse column names from header row to match the actual template structure
+    col_names: list[str] = []
+    if header_rows:
+        header_cells = re.findall(
+            r"<t[hd][^>]*>.*?</t[hd]>", header_rows[0], re.DOTALL | re.IGNORECASE
+        )
+        for cell in header_cells:
+            text = re.sub(r"<[^>]+>", "", cell).strip().lower()
+            col_names.append(text)
+    if not col_names:
+        col_names = ["id", "feature category", "feature name", "description", "priority", "dependencies", "note"]
+
     # Build feature rows with category grouping
     data_rows: list[str] = []
     seen_category: str | None = None
@@ -351,7 +364,7 @@ def _update_feature_list_table(storage: str, features: list[dict]) -> str:
         show_cat = feat["category"] != seen_category
         if show_cat:
             seen_category = feat["category"]
-        data_rows.append(_build_feature_row(feat, show_cat))
+        data_rows.append(_build_feature_row(feat, show_cat, col_names))
 
     new_tbody = tbody_m.group(1) + "".join(header_rows) + "".join(data_rows) + tbody_m.group(3)
     new_table = table_html.replace(tbody_m.group(0), new_tbody)
@@ -779,6 +792,192 @@ async def update_prd_qa_table(
         raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
     data = _ensure_ok(put_resp)
 
+    webui = str(data.get("_links", {}).get("webui", ""))
+    site = settings.JIRA_BASE_URL.rstrip("/")
+    return f"{site}/wiki{webui}" if webui else f"{site}/wiki/pages/{page_id}"
+
+
+@dataclass
+class ConfluenceComment:
+    id: str
+    body: str
+    is_inline: bool = False
+
+
+def extract_features_from_storage(storage: str) -> list[dict]:
+    """Parse feature rows from the Feature List table in Confluence storage XML.
+
+    Returns a list of dicts with keys: id, category, name, description,
+    priority, complexity, dependencies, note.
+    """
+    coords = _find_section_content(storage, "Feature List")
+    if not coords:
+        return []
+    s, e = coords
+    section = storage[s:e]
+
+    tbl_coords = _find_table_outside_expand(section)
+    if not tbl_coords:
+        return []
+    ts, te = tbl_coords
+    table_html = section[ts:te]
+
+    tbody_m = re.search(r"<tbody>(.*?)</tbody>", table_html, re.DOTALL | re.IGNORECASE)
+    if not tbody_m:
+        return []
+
+    all_rows = re.findall(r"<tr\b[^>]*>.*?</tr>", tbody_m.group(1), re.DOTALL | re.IGNORECASE)
+    header_rows = [r for r in all_rows if re.search(r"<th\b", r, re.IGNORECASE)]
+    data_rows = [r for r in all_rows if not re.search(r"<th\b", r, re.IGNORECASE)]
+
+    # Build column name → index map from header
+    col_index: dict[str, int] = {}
+    if header_rows:
+        hcells = re.findall(r"<t[hd][^>]*>.*?</t[hd]>", header_rows[0], re.DOTALL | re.IGNORECASE)
+        for i, cell in enumerate(hcells):
+            text = re.sub(r"<[^>]+>", "", cell).strip().lower()
+            col_index[text] = i
+
+    def _cell_text(cells: list[str], key: str) -> str:
+        idx = col_index.get(key)
+        if idx is None or idx >= len(cells):
+            return ""
+        raw = re.sub(r"<[^>]+>", " ", cells[idx]).strip()
+        return re.sub(r"\s+", " ", raw).strip()
+
+    features: list[dict] = []
+    last_category = ""
+    for row in data_rows:
+        cells = re.findall(r"<td[^>]*>.*?</td>", row, re.DOTALL | re.IGNORECASE)
+        if not cells:
+            continue
+        feat_id = _cell_text(cells, "id")
+        if not feat_id:
+            continue
+        category = _cell_text(cells, "feature category") or last_category
+        if category:
+            last_category = category
+        features.append({
+            "id": feat_id,
+            "category": last_category,
+            "name": _cell_text(cells, "feature name"),
+            "description": _cell_text(cells, "description"),
+            "priority": _cell_text(cells, "priority"),
+            "complexity": _cell_text(cells, "complexity"),
+            "dependencies": _cell_text(cells, "dependencies") or "-",
+            "note": _cell_text(cells, "note"),
+        })
+    return features
+
+
+async def fetch_page_comments(page_id: str) -> list[ConfluenceComment]:
+    """Fetch all unresolved footer and inline comments from a Confluence page."""
+    _require_config()
+    client = _get_client()
+    comments: list[ConfluenceComment] = []
+
+    for is_inline, endpoint in (
+        (False, f"/api/v2/pages/{page_id}/footer-comments"),
+        (True, f"/api/v2/pages/{page_id}/inline-comments"),
+    ):
+        cursor: str | None = None
+        while True:
+            params: dict[str, str | int] = {"limit": 50, "body-format": "storage"}
+            if cursor:
+                params["cursor"] = cursor
+            try:
+                resp = await client.get(endpoint, params=params)
+            except httpx.HTTPError as exc:
+                raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+
+            if resp.status_code == 404:
+                break
+            data = _ensure_ok(resp)
+
+            for item in data.get("results", []):
+                # Skip resolved inline comments
+                if item.get("resolutionStatus") == "resolved":
+                    continue
+                body_storage = (
+                    (item.get("body") or {})
+                    .get("storage", {})
+                    .get("value", "")
+                )
+                plain = re.sub(r"<[^>]+>", " ", body_storage).strip()
+                plain = re.sub(r"\s+", " ", plain)
+                if not plain:
+                    continue
+
+                # For inline comments, prepend the original selected text so AI knows context
+                if is_inline:
+                    anchor = (
+                        (item.get("properties") or {})
+                        .get("inlineOriginalSelection", "")
+                        .strip()
+                    )
+                    if anchor:
+                        plain = f'[anchored to: "{anchor}"] {plain}'
+
+                comments.append(ConfluenceComment(id=item["id"], body=plain, is_inline=is_inline))
+
+            next_cursor = (data.get("_links") or {}).get("next")
+            if not next_cursor:
+                break
+            m = re.search(r"cursor=([^&]+)", next_cursor)
+            cursor = m.group(1) if m else None
+
+    return comments
+
+
+async def resolve_comments(comments: list[ConfluenceComment]) -> None:
+    """Mark a list of Confluence inline/footer comments as resolved."""
+    _require_config()
+    client = _get_client()
+    for comment in comments:
+        endpoint = (
+            f"/api/v2/inline-comments/{comment.id}"
+            if comment.is_inline
+            else f"/api/v2/footer-comments/{comment.id}"
+        )
+        try:
+            await client.put(endpoint, json={"resolutionStatus": "resolved"})
+        except httpx.HTTPError:
+            pass  # best-effort; don't fail the whole operation
+
+
+async def fetch_feature_list_storage(page_id: str) -> tuple[str, int, str]:
+    """Return (storage_xml, version_number, page_title) for a Confluence page."""
+    _require_config()
+    try:
+        resp = await _get_client().get(
+            f"/api/v2/pages/{page_id}", params={"body-format": "storage"}
+        )
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(resp)
+    version: int = (data.get("version") or {}).get("number", 1)
+    title: str = str(data.get("title", "Feature List"))
+    storage: str = (data.get("body") or {}).get("storage", {}).get("value", "")
+    return storage, version, title
+
+
+async def write_feature_list_storage(
+    page_id: str, storage: str, version: int, title: str
+) -> str:
+    """PUT updated storage XML back to Confluence. Returns the Confluence URL."""
+    _require_config()
+    payload = {
+        "id": page_id,
+        "status": "current",
+        "title": title,
+        "version": {"number": version + 1},
+        "body": {"representation": "storage", "value": storage},
+    }
+    try:
+        put_resp = await _get_client().put(f"/api/v2/pages/{page_id}", json=payload)
+    except httpx.HTTPError as exc:
+        raise ConfluenceIntegrationError(f"Confluence request failed: {exc}") from exc
+    data = _ensure_ok(put_resp)
     webui = str(data.get("_links", {}).get("webui", ""))
     site = settings.JIRA_BASE_URL.rstrip("/")
     return f"{site}/wiki{webui}" if webui else f"{site}/wiki/pages/{page_id}"

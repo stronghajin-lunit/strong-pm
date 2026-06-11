@@ -97,7 +97,7 @@ export function NewProjectModal({ onClose }: NewProjectModalProps) {
               data-testid="project-name-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Payment Module Refactor"
+              placeholder="e.g. Block Glass Slide Management"
               className="w-full rounded-[6px] px-[10px] py-2 text-[13px] outline-none"
               style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
             />

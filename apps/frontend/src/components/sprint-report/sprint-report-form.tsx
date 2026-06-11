@@ -6,10 +6,10 @@ import type { SprintOption, SprintRunRecord } from '@/types/sprint'
 
 interface SprintReportFormProps {
   sprintOptions: SprintOption[]
-  onRunComplete?: (record: SprintRunRecord) => void
+  onRun?: (temp: SprintRunRecord, promise: Promise<SprintRunRecord>) => void
 }
 
-export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportFormProps) {
+export function SprintReportForm({ sprintOptions, onRun }: SprintReportFormProps) {
   const [selectedSprintId, setSelectedSprintId] = useState('')
   const [confluenceUrl, setConfluenceUrl] = useState('')
   const [spGoal, setSpGoal] = useState('')
@@ -19,25 +19,27 @@ export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportF
   const selectedSprint = sprintOptions.find((s) => s.sprintId === Number(selectedSprintId))
   const canRun = !!selectedSprint && confluenceUrl.trim() !== ''
 
-  const handleRun = async () => {
+  const handleRun = () => {
     if (!canRun || !selectedSprint) return
     setIsRunning(true)
-    setError(null)
-    try {
-      const payload: Parameters<typeof runSprintReport>[0] = {
-        sprint_id: selectedSprint.sprintId,
-        sprint_number: selectedSprint.sprintNumber,
-        sprint_label: selectedSprint.label,
-        confluence_page_url: confluenceUrl.trim(),
-      }
-      if (spGoal.trim()) payload.sp_goal = Number(spGoal)
-      const record = await runSprintReport(payload)
-      onRunComplete?.(record)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-    } finally {
-      setIsRunning(false)
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const tempRecord: SprintRunRecord = {
+      id: `temp-${Date.now()}`,
+      sprintLabel: selectedSprint.label,
+      requestedAt: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      status: 'running',
+      confluenceUrl: null,
     }
+    const payload: Parameters<typeof runSprintReport>[0] = {
+      sprint_id: selectedSprint.sprintId,
+      sprint_number: selectedSprint.sprintNumber,
+      sprint_label: selectedSprint.label,
+      confluence_page_url: confluenceUrl.trim(),
+    }
+    if (spGoal.trim()) payload.sp_goal = Number(spGoal)
+    const promise = runSprintReport(payload)
+    onRun?.(tempRecord, promise)
   }
 
   return (
@@ -89,10 +91,10 @@ export function SprintReportForm({ sprintOptions, onRunComplete }: SprintReportF
             </p>
           </div>
 
-          {/* Confluence page URL */}
+          {/* Sprint Report page URL */}
           <div>
             <label className="block text-[11px] font-semibold mb-[5px]" style={{ color: 'var(--text-2)' }}>
-              Confluence Page URL{' '}
+              Sprint Report Page URL{' '}
               <span
                 className="text-[11px] font-normal px-[6px] py-[1px] rounded-[6px]"
                 style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}
