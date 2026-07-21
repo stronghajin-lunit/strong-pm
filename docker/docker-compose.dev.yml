@@ -37,5 +37,21 @@ services:
     volumes:
       - ../apps/backend:/app
 
+  frontend:
+    build:
+      context: ../apps/frontend
+      dockerfile: Dockerfile.dev
+    container_name: strongpm-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    volumes:
+      - ../apps/frontend:/app
+      - /app/node_modules
+      - /app/.next
+
 volumes:
   postgres_data:
