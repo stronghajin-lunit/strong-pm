@@ -72,6 +72,7 @@ class ProjectContext(Base):
         nullable=False,
     )
     context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context_ko: Mapped[str | None] = mapped_column(Text, nullable=True)
     page_cache: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict
     )

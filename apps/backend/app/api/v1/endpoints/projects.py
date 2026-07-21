@@ -3,11 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db
 from app.schemas.project import (
+    ContextPreviewResponse,
     ProjectContextResponse,
     ProjectCreateRequest,
     ProjectListResponse,
     ProjectResponse,
     ProjectUpdateRequest,
+    SaveContextRequest,
     SyncStatusResponse,
 )
 from app.services import project_service
@@ -61,3 +63,20 @@ async def get_context(
     db: AsyncSession = Depends(get_db),
 ) -> ProjectContextResponse:
     return await project_service.get_project_context(db, project_id)
+
+
+@router.post("/{project_id}/context/preview", response_model=ContextPreviewResponse)
+async def preview_context_sync(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> ContextPreviewResponse:
+    return await project_service.preview_context_sync(db, project_id)
+
+
+@router.put("/{project_id}/context", response_model=ProjectContextResponse)
+async def save_context(
+    project_id: str,
+    body: SaveContextRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectContextResponse:
+    return await project_service.save_context(db, project_id, body)

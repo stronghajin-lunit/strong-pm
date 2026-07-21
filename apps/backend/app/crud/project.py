@@ -82,11 +82,13 @@ async def upsert_context(
     project_id: int,
     context: str,
     page_cache: dict[str, Any],
+    context_ko: str | None = None,
 ) -> ProjectContext:
     existing = await get_context(db, project_id)
     now = datetime.now(UTC)
     if existing:
         existing.context = context
+        existing.context_ko = context_ko
         existing.page_cache = page_cache
         existing.synced_at = now
         await db.flush()
@@ -94,8 +96,38 @@ async def upsert_context(
     ctx = ProjectContext(
         project_id=project_id,
         context=context,
+        context_ko=context_ko,
         page_cache=page_cache,
         synced_at=now,
+    )
+    db.add(ctx)
+    await db.flush()
+    return ctx
+
+
+async def save_context_text(
+    db: AsyncSession,
+    project_id: int,
+    context: str,
+    context_ko: str | None = None,
+    update_synced_at: bool = False,
+) -> ProjectContext:
+    """Save context text. If update_synced_at=True, stamps synced_at to now (for Apply after sync)."""
+    existing = await get_context(db, project_id)
+    now = datetime.now(UTC)
+    if existing:
+        existing.context = context
+        existing.context_ko = context_ko
+        if update_synced_at:
+            existing.synced_at = now
+        await db.flush()
+        return existing
+    ctx = ProjectContext(
+        project_id=project_id,
+        context=context,
+        context_ko=context_ko,
+        page_cache={},
+        synced_at=now if update_synced_at else None,
     )
     db.add(ctx)
     await db.flush()

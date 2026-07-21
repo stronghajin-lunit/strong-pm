@@ -9,11 +9,13 @@ from app.integrations.confluence import ConfluenceIntegrationError, extract_page
 from app.models.project import Project
 from app.schemas.project import (
     VALID_STATUSES,
+    ContextPreviewResponse,
     ProjectContextResponse,
     ProjectCreateRequest,
     ProjectListResponse,
     ProjectResponse,
     ProjectUpdateRequest,
+    SaveContextRequest,
     SyncStatusResponse,
 )
 from app.services import project_context_service
@@ -180,6 +182,62 @@ async def sync_project_context(
     return SyncStatusResponse(status="syncing", message="Context sync started in background.")
 
 
+async def preview_context_sync(
+    db: AsyncSession, project_id: str
+) -> ContextPreviewResponse:
+    """Synchronously compute new context without saving. Used for diff preview."""
+    pid = _parse_project_id(project_id)
+    project = await project_crud.get_by_id(db, pid)
+    if not project:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
+    if not project.confluence_page_id:
+        raise HTTPException(status_code=400, detail={"code": "NO_CONFLUENCE_LINK"})
+
+    try:
+        old_context, new_context, new_context_ko, page_count, changed_page_titles = await project_context_service.preview_sync(db, pid)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail={"code": "SYNC_FAILED", "message": str(exc)}) from exc
+
+    return ContextPreviewResponse(
+        project_id=project_id,
+        old_context=old_context,
+        new_context=new_context,
+        new_context_ko=new_context_ko,
+        page_count=page_count,
+        changed_page_titles=changed_page_titles,
+    )
+
+
+async def save_context(
+    db: AsyncSession, project_id: str, body: SaveContextRequest
+) -> ProjectContextResponse:
+    """Save user-edited context text and regenerate Korean translation."""
+    from app.integrations.ai import translate_context_to_korean
+
+    pid = _parse_project_id(project_id)
+    project = await project_crud.get_by_id(db, pid)
+    if not project:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND"})
+
+    context_ko: str | None = None
+    try:
+        context_ko = await translate_context_to_korean(body.context)
+    except Exception:
+        pass  # translation failure is non-fatal
+
+    ctx = await project_crud.save_context_text(
+        db, pid, body.context, context_ko=context_ko, update_synced_at=body.is_sync_apply
+    )
+    await db.commit()
+    return ProjectContextResponse(
+        project_id=project_id,
+        context=ctx.context,
+        context_ko=ctx.context_ko,
+        synced_at=fmt_dt_required(ctx.synced_at) if ctx.synced_at else None,
+        page_count=len(ctx.page_cache),
+    )
+
+
 async def get_project_context(
     db: AsyncSession, project_id: str
 ) -> ProjectContextResponse:
@@ -191,6 +249,7 @@ async def get_project_context(
     return ProjectContextResponse(
         project_id=project_id,
         context=ctx.context if ctx else None,
+        context_ko=ctx.context_ko if ctx else None,
         synced_at=fmt_dt_required(ctx.synced_at) if ctx and ctx.synced_at else None,
         page_count=len(ctx.page_cache) if ctx else 0,
     )

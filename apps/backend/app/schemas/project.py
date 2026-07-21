@@ -42,6 +42,7 @@ class ProjectListResponse(BaseModel):
 class ProjectContextResponse(BaseModel):
     project_id: str
     context: str | None
+    context_ko: str | None
     synced_at: str | None
     page_count: int
 
@@ -49,3 +50,17 @@ class ProjectContextResponse(BaseModel):
 class SyncStatusResponse(BaseModel):
     status: str
     message: str
+
+
+class ContextPreviewResponse(BaseModel):
+    project_id: str
+    old_context: str | None
+    new_context: str
+    new_context_ko: str
+    page_count: int
+    changed_page_titles: list[str]
+
+
+class SaveContextRequest(BaseModel):
+    context: str
+    is_sync_apply: bool = False
