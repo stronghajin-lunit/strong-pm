@@ -6,6 +6,7 @@ interface SlackItemProps {
   projects: Project[]
   onLink: (itemId: number, projectId: number | null) => void
   onPushToPrd: (itemId: number) => void
+  onDelete: (itemId: number) => void
   isArchived?: boolean
   isPushing?: boolean
 }
@@ -15,6 +16,7 @@ export function SlackItem({
   projects,
   onLink,
   onPushToPrd,
+  onDelete,
   isArchived = false,
   isPushing = false,
 }: SlackItemProps) {
@@ -168,7 +170,7 @@ export function SlackItem({
         {/* Project link select */}
         <select
           data-testid={`slack-item-select-${item.id}`}
-          value={item.linkedProjectId ?? ''}
+          value={item.linkedProjectId !== null ? String(item.linkedProjectId) : ''}
           onChange={(e) =>
             onLink(item.id, e.target.value !== '' ? Number(e.target.value) : null)
           }
@@ -186,11 +188,25 @@ export function SlackItem({
         >
           <option value="">— Select project —</option>
           {projects.map((project) => (
-            <option key={project.id} value={project.id}>
+            <option key={project.id} value={project.id.replace('proj-', '')}>
               {project.name}
             </option>
           ))}
         </select>
+
+        {/* Delete button */}
+        <button
+          type="button"
+          data-testid={`slack-item-delete-btn-${item.id}`}
+          onClick={() => onDelete(item.id)}
+          className="ml-auto flex items-center gap-[5px] px-[10px] py-[5px] rounded-[6px] text-[11px] font-medium transition-all"
+          style={{ background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border-md)' }}
+          title="Delete this item"
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="10" height="10">
+            <path d="M2 4h12M6 4V2h4v2M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" />
+          </svg>
+        </button>
 
         {/* Push to PRD Q&A button */}
         {!isArchived && (
@@ -199,7 +215,7 @@ export function SlackItem({
             data-testid={`slack-item-archive-btn-${item.id}`}
             disabled={!isLinked || isPushing}
             onClick={() => onPushToPrd(item.id)}
-            className="ml-auto flex items-center gap-[5px] px-[12px] py-[5px] rounded-[6px] text-[11px] font-semibold transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-[5px] px-[12px] py-[5px] rounded-[6px] text-[11px] font-semibold transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
             style={
               isLinked
                 ? { background: 'var(--teal)', color: '#fff', border: '1px solid var(--teal)' }

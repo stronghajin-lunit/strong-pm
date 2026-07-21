@@ -5,7 +5,7 @@ import { SlackFilterBar } from '@/components/slack/slack-filter-bar'
 import { SlackItem } from '@/components/slack/slack-item'
 import { useUIStore } from '@/stores/ui-store'
 import { useProjectStore } from '@/stores/project-store'
-import { fetchSlackQaItems, linkSlackQaItem, pushToPrd } from '@/api/slack'
+import { fetchSlackQaItems, linkSlackQaItem, pushToPrd, deleteSlackQaItem } from '@/api/slack'
 import type { SlackFilter, SlackItem as SlackItemType } from '@/types/slack'
 
 export default function SlackPage() {
@@ -14,9 +14,9 @@ export default function SlackPage() {
 
   const [filter, setFilter] = useState<SlackFilter>('all')
   const [items, setItems] = useState<SlackItemType[]>([])
-  const [isSyncing, setIsSyncing] = useState(false)
   const [pushingId, setPushingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setTopbarTitle('Slack Q&A Linker')
@@ -57,21 +57,24 @@ export default function SlackPage() {
     }
   }
 
-  const handleSync = async () => {
-    setIsSyncing(true)
+  const handleDelete = async (itemId: number) => {
     try {
-      await loadItems()
-    } finally {
-      setIsSyncing(false)
+      await deleteSlackQaItem(itemId)
+      setItems((prev) => prev.filter((item) => item.id !== itemId))
+    } catch {
+      setError('Failed to delete item')
     }
+  }
+
+  const handleCopyCommand = async () => {
+    await navigator.clipboard.writeText('/project:slack-sync')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const filteredItems = items.filter((item) => {
     if (filter === 'archived') return item.archived
-    if (item.archived) return false
-    if (filter === 'linked') return item.linkedProjectId !== null
-    if (filter === 'unlinked') return item.linkedProjectId === null
-    return true
+    return !item.archived
   })
 
   return (
@@ -88,35 +91,33 @@ export default function SlackPage() {
           <span className="text-[16px] font-bold opacity-70">#</span>
           private-onco-squad · DMs
         </div>
-        <div className="text-[11px] flex-1" style={{ color: 'var(--text-3)' }}>
-          Messages tagged with :strong_pm: · run /project:slack-sync in Claude Code to import
-        </div>
-        <button
-          type="button"
-          onClick={handleSync}
-          disabled={isSyncing}
-          data-testid="sync-btn"
-          className="flex items-center gap-[5px] text-[11px] rounded-[6px] px-[10px] py-1 border transition-colors disabled:opacity-50"
-          style={{
-            background: 'var(--surface-2)',
-            borderColor: 'var(--border-md)',
-            color: 'var(--text-3)',
-          }}
-        >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            width="12"
-            height="12"
-            className={isSyncing ? 'animate-spin' : ''}
+        <div className="flex items-center gap-[6px] flex-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
+          <span>Enter in Claude Code:</span>
+          <div
+            className="flex items-center gap-[6px] rounded-[4px] px-[8px] py-[2px] font-mono"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border-md)' }}
           >
-            <path d="M1 8a7 7 0 1 0 1.5-4.3" />
-            <polyline points="1,2 1,6 5,6" />
-          </svg>
-          Refresh
-        </button>
+            <span style={{ color: 'var(--text-2)' }}>/project:slack-sync</span>
+            <button
+              type="button"
+              onClick={handleCopyCommand}
+              title="Copy command"
+              className="transition-colors"
+              style={{ color: copied ? '#16a34a' : 'var(--text-3)' }}
+            >
+              {copied ? (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+                  <path d="M2 8l4 4 8-8" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="11" height="11">
+                  <rect x="5" y="5" width="8" height="8" rx="1" />
+                  <path d="M5 5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-1" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Error banner */}
@@ -198,6 +199,7 @@ export default function SlackPage() {
             projects={projects}
             onLink={handleLink}
             onPushToPrd={handlePushToPrd}
+            onDelete={handleDelete}
             isArchived={filter === 'archived'}
             isPushing={pushingId === item.id}
           />

@@ -44,7 +44,7 @@ describe('SlackItem', () => {
   describe('기본 렌더링', () => {
     it('사용자 이름, 날짜, 아바타 이니셜을 렌더링한다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       expect(screen.getByText('Kang Minjun')).toBeInTheDocument()
@@ -56,7 +56,7 @@ describe('SlackItem', () => {
   describe('Slack 원본 링크', () => {
     it('"Slack에서 보기" 링크가 올바른 URL을 가진다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       const link = screen.getByTestId('slack-item-link-1')
@@ -69,7 +69,7 @@ describe('SlackItem', () => {
   describe('AI 요약 (Summary)', () => {
     it('Q/A 요약을 표시한다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       const summary = screen.getByTestId('slack-item-summary-1')
@@ -81,7 +81,7 @@ describe('SlackItem', () => {
   describe('AI 프로젝트 추천 태그', () => {
     it('aiProjectId가 있을 때 AI 추천 프로젝트 이름을 표시한다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       const tag = screen.getByTestId('slack-item-ai-tag-1')
@@ -90,7 +90,7 @@ describe('SlackItem', () => {
 
     it('aiProjectId가 null일 때 "No clear project match"를 표시한다', () => {
       render(
-        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       const tag = screen.getByTestId('slack-item-ai-tag-4')
@@ -101,7 +101,7 @@ describe('SlackItem', () => {
   describe('프로젝트 연결 셀렉트', () => {
     it('linkedProjectId가 있을 때 해당 프로젝트가 선택된 상태다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       expect(screen.getByTestId('slack-item-select-1')).toHaveValue('1')
@@ -109,7 +109,7 @@ describe('SlackItem', () => {
 
     it('linkedProjectId가 null일 때 빈 값이 선택된다', () => {
       render(
-        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       expect(screen.getByTestId('slack-item-select-4')).toHaveValue('')
@@ -118,7 +118,7 @@ describe('SlackItem', () => {
     it('프로젝트 선택 시 onLink를 호출한다', async () => {
       const onLink = vi.fn()
       render(
-        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={onLink} onPushToPrd={vi.fn()} />,
+        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={onLink} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       await userEvent.selectOptions(screen.getByTestId('slack-item-select-4'), '1')
@@ -129,7 +129,7 @@ describe('SlackItem', () => {
     it('"— Select project —" 선택 시 onLink를 null로 호출한다', async () => {
       const onLink = vi.fn()
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={onLink} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={onLink} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       await userEvent.selectOptions(screen.getByTestId('slack-item-select-1'), '')
@@ -141,7 +141,7 @@ describe('SlackItem', () => {
   describe('→ PRD Q&A 버튼', () => {
     it('linkedProjectId가 있을 때 버튼이 활성화된다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       expect(screen.getByTestId('slack-item-archive-btn-1')).not.toBeDisabled()
@@ -149,7 +149,7 @@ describe('SlackItem', () => {
 
     it('linkedProjectId가 null일 때 버튼이 비활성화된다', () => {
       render(
-        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} />,
+        <SlackItem item={unlinkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} />,
       )
 
       expect(screen.getByTestId('slack-item-archive-btn-4')).toBeDisabled()
@@ -158,7 +158,7 @@ describe('SlackItem', () => {
     it('버튼 클릭 시 onPushToPrd를 호출한다', async () => {
       const onPushToPrd = vi.fn()
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={onPushToPrd} />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={onPushToPrd} onDelete={vi.fn()} />,
       )
 
       await userEvent.click(screen.getByTestId('slack-item-archive-btn-1'))
@@ -168,7 +168,7 @@ describe('SlackItem', () => {
 
     it('isArchived=true일 때 버튼이 렌더링되지 않는다', () => {
       render(
-        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} isArchived />,
+        <SlackItem item={linkedItem} projects={MOCK_PROJECTS} onLink={vi.fn()} onPushToPrd={vi.fn()} onDelete={vi.fn()} isArchived />,
       )
 
       expect(screen.queryByTestId('slack-item-archive-btn-1')).not.toBeInTheDocument()

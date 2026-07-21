@@ -43,6 +43,11 @@ export async function linkSlackQaItem(itemId: number, projectId: number | null):
   return toCamel(await res.json())
 }
 
+export async function deleteSlackQaItem(itemId: number): Promise<void> {
+  const res = await fetch(`${BASE}/${itemId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete item')
+}
+
 export async function pushToPrd(itemId: number): Promise<SlackItem> {
   const res = await fetch(`${BASE}/${itemId}/push-to-prd`, { method: 'POST' })
   if (!res.ok) {

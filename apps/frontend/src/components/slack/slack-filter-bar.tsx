@@ -7,10 +7,8 @@ interface SlackFilterBarProps {
 }
 
 const FILTERS: { value: SlackFilter; label: string }[] = [
-  { value: 'all',      label: 'All'      },
-  { value: 'unlinked', label: 'Unlinked' },
-  { value: 'linked',   label: 'Linked'   },
-  { value: 'archived', label: 'Archive'  },
+  { value: 'all',      label: 'All'     },
+  { value: 'archived', label: 'Archive' },
 ]
 
 export function SlackFilterBar({ activeFilter, count, onFilter }: SlackFilterBarProps) {

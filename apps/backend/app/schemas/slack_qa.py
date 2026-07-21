@@ -40,3 +40,14 @@ class SlackQaLinkRequest(BaseModel):
 
 class SlackQaLastSyncedResponse(BaseModel):
     last_message_ts: str | None
+
+
+class SlackThreadRequest(BaseModel):
+    slack_channel_id: str
+    slack_channel_name: str
+    slack_message_ts: str
+    slack_message_url: str
+    sender_name: str
+    answer_date: str
+    raw_messages: list[str]
+    project_names: list[str] = []

@@ -5,9 +5,9 @@ Scan Slack for messages with `:strong_pm:` reactions and import new Q&A items in
 ## What this does
 
 1. Calls the backend to get the last synced message timestamp
-2. Reads `#private-onco-squad` and DMs for messages with `:strong_pm:` reaction added after that timestamp
-3. For each new message: reads the full thread, uses AI to extract Q&A summary
-4. POSTs each new item to the backend API
+2. Searches all channels and DMs for messages with `:strong_pm:` reaction after that timestamp
+3. For each new message: collects the raw thread (or ±2 days context for DMs) and sends to the backend
+4. Backend summarizes using Haiku and stores the result
 
 ## How to run
 
@@ -24,53 +24,59 @@ Scan Slack for messages with `:strong_pm:` reactions and import new Q&A items in
 Call `GET http://localhost:8000/api/v1/slack-qa/last-synced` to find out where to start scanning.
 If `last_message_ts` is null, scan the last 30 days.
 
-### Step 2 — Get project list for AI suggestion
+Convert the timestamp to `YYYY-MM-DD` format for the Slack search `after:` filter.
+
+### Step 2 — Get project list
 
 Call `GET http://localhost:8000/api/v1/projects` to get the current project list.
+Collect `name` for each project — these will be passed to the backend for AI matching.
 
 ### Step 3 — Scan #private-onco-squad
 
 Use `slack_read_channel` with channel_id `C08SHL6TE74`.
-Set `oldest` to `last_message_ts` if available.
+Set `oldest` to `last_message_ts` if available (use the `response_format: detailed` option to see reactions inline).
 For each message:
-- Use `slack_get_reactions` to check if `:strong_pm:` reaction exists
-- If yes: note the message_ts, sender, and read the full thread with `slack_read_thread`
+- If `:strong_pm:` reaction exists: note the message_ts, sender, and read the full thread with `slack_read_thread`
+- Collect all thread messages as raw text (format: `"[sender] message_text"`)
 
-### Step 4 — Scan DMs
+### Step 4 — Search DMs for reacted messages
 
-Use `slack_search_channels` with `channel_types: im` to find active DM channels.
-For each DM channel, use `slack_read_channel` with `oldest` set to `last_message_ts`.
-Apply the same `:strong_pm:` reaction check.
+Use `slack_search_public_and_private` with query:
+```
+has::strong_pm: after:YYYY-MM-DD
+```
 
-### Step 5 — Summarize each thread with AI
+Filter results to DM channels only (channel_id starts with `D`).
 
-For each thread found, produce:
-- `question`: bullet points if multiple questions, single line if one (Korean or English as-is)
-- `answer`: summary of answers from the thread
-- `answer_date`: date of the message that received the `:strong_pm:` reaction (format: YYYY-MM-DD)
-- `ai_project_id`: best matching project ID from the project list, or null if unclear
+For each DM result:
+- Note the message_ts, sender, channel_id
+- Read surrounding messages for context: `oldest = message_ts - 172800`, `latest = message_ts + 172800`
+- If the message has a thread, read it with `slack_read_thread`
+- Combine thread + surrounding messages (deduplicate by ts)
+- Collect all as raw text (format: `"[sender] message_text"`)
 
-### Step 6 — POST to backend
+### Step 5 — POST to backend for AI summarization
 
-For each new item, call `POST http://localhost:8000/api/v1/slack-qa` with:
+For each new item, call `POST http://localhost:8000/api/v1/slack-qa/from-thread` with:
 
 ```json
 {
   "slack_channel_id": "<channel_id>",
   "slack_channel_name": "<channel name or 'DM: sender_name'>",
-  "slack_message_ts": "<message_ts>",
+  "slack_message_ts": "<message_ts of the reacted message>",
   "slack_message_url": "<slack permalink>",
-  "sender_name": "<display name>",
-  "question": "<AI extracted question>",
-  "answer": "<AI extracted answer>",
-  "answer_date": "<YYYY-MM-DD>",
-  "ai_project_id": <project_id or null>
+  "sender_name": "<display name of the message sender>",
+  "answer_date": "<YYYY-MM-DD of the reacted message>",
+  "raw_messages": ["[sender] message text", ...],
+  "project_names": ["Project A", "Project B", ...]
 }
 ```
 
+The backend will use Haiku to extract Q&A and match the project automatically.
+
 Skip items that return 409 (already imported).
 
-### Step 7 — Report
+### Step 6 — Report
 
 Print a summary:
 - How many new items imported

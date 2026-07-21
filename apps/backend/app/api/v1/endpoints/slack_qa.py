@@ -8,6 +8,7 @@ from app.schemas.slack_qa import (
     SlackQaItemResponse,
     SlackQaLastSyncedResponse,
     SlackQaLinkRequest,
+    SlackThreadRequest,
 )
 from app.services import slack_qa_service
 
@@ -27,6 +28,14 @@ async def create_item(
     return await slack_qa_service.create_item(db, body)
 
 
+@router.post("/from-thread", response_model=SlackQaItemResponse, status_code=201)
+async def create_from_thread(
+    body: SlackThreadRequest,
+    db: AsyncSession = Depends(get_db),
+) -> SlackQaItemResponse:
+    return await slack_qa_service.create_from_thread(db, body)
+
+
 @router.get("/last-synced", response_model=SlackQaLastSyncedResponse)
 async def get_last_synced(db: AsyncSession = Depends(get_db)) -> SlackQaLastSyncedResponse:
     return await slack_qa_service.get_last_synced(db)
@@ -39,6 +48,14 @@ async def link_project(
     db: AsyncSession = Depends(get_db),
 ) -> SlackQaItemResponse:
     return await slack_qa_service.link_project(db, item_id, body.project_id)
+
+
+@router.delete("/{item_id}", status_code=204)
+async def delete_item(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await slack_qa_service.delete_item(db, item_id)
 
 
 @router.post("/{item_id}/push-to-prd", response_model=SlackQaItemResponse)

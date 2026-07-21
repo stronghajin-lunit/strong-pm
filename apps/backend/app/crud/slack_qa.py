@@ -46,3 +46,8 @@ async def archive(db: AsyncSession, item: SlackQaItem) -> SlackQaItem:
     item.archived = True
     await db.flush()
     return item
+
+
+async def delete(db: AsyncSession, item: SlackQaItem) -> None:
+    await db.delete(item)
+    await db.flush()

@@ -21,4 +21,4 @@ export interface SlackLastSyncedResponse {
   last_message_ts: string | null
 }
 
-export type SlackFilter = 'all' | 'unlinked' | 'linked' | 'archived'
+export type SlackFilter = 'all' | 'archived'
