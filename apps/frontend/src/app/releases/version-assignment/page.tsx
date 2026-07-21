@@ -18,6 +18,26 @@ const FILTER_OPTIONS: { value: FilterPeriod; label: string }[] = [
   { value: '3m',  label: '3 months' },
 ]
 
+const LS_HIDDEN_KEY = 'va-hidden-ticket-ids'
+
+function getHiddenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(LS_HIDDEN_KEY)
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function addHiddenIds(ids: string[]): void {
+  try {
+    const next = [...getHiddenIds(), ...ids]
+    localStorage.setItem(LS_HIDDEN_KEY, JSON.stringify(next))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export default function VersionAssignmentPage() {
   const setTopbarTitle = useUIStore((s) => s.setTopbarTitle)
 
@@ -45,7 +65,10 @@ export default function VersionAssignmentPage() {
     setSelectedIds(new Set())
     setSelectedStatuses(new Set())
     void fetchUnversionedTickets(period)
-      .then(setTickets)
+      .then((fetched) => {
+        const hidden = getHiddenIds()
+        setTickets(fetched.filter((t) => !hidden.has(t.id)))
+      })
       .catch(() => setTickets([]))
       .finally(() => setIsLoading(false))
   }, [])
@@ -135,6 +158,7 @@ export default function VersionAssignmentPage() {
   }
 
   const handleRemoveSelected = () => {
+    addHiddenIds([...selectedIds])
     setTickets((prev) => prev.filter((t) => !selectedIds.has(t.id)))
     setSelectedIds(new Set())
     setFailedIds(new Set())
