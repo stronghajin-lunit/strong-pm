@@ -11,7 +11,6 @@ export function Sidebar() {
   const pathname = usePathname()
   const projects = useProjectStore((s) => s.projects)
   const loadProjects = useProjectStore((s) => s.loadProjects)
-  const openNewProjectModal = useUIStore((s) => s.openNewProjectModal)
   const [isReleasesOpen, setIsReleasesOpen] = useState(true)
   const [isPMOpen, setIsPMOpen] = useState(true)
   const [isArchiveOpen, setIsArchiveOpen] = useState(false)
@@ -27,6 +26,7 @@ export function Sidebar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const isReleasesActive = pathname.startsWith('/releases')
   const isPMActive = pathname.startsWith('/prd-writer') || pathname.startsWith('/jira-ticket-writer') || pathname.startsWith('/slack')
+  const isSettingsActive = pathname.startsWith('/settings')
 
   return (
     <aside
@@ -66,15 +66,6 @@ export function Sidebar() {
         </NavItem>
 
         <div className="h-px my-1" style={{ background: 'var(--border)' }} />
-
-        <NavItem href="/pr-tracker" label="PR Tracker" active={isActive('/pr-tracker')}>
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <circle cx="4" cy="4" r="2" />
-            <circle cx="4" cy="12" r="2" />
-            <circle cx="12" cy="4" r="2" />
-            <path d="M4 6v4M6 4h3a1 1 0 0 1 1 1v5" />
-          </svg>
-        </NavItem>
 
         <NavItem
           href="/sprint-report"
@@ -269,7 +260,7 @@ export function Sidebar() {
                 <line x1="8" y1="5" x2="8" y2="11" />
               </svg>
             </NavItem>
-            <NavItem href="/slack" label="Slack Q&A Linker" active={isActive('/slack')} sub>
+            <NavItem href="/slack" label="Slack Q&A Linker" active={isActive('/slack')} sub badge="Beta">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M5.5 2a1.5 1.5 0 0 0 0 3H7V3.5A1.5 1.5 0 0 0 5.5 2z" />
                 <path d="M10.5 2a1.5 1.5 0 0 1 0 3H9V3.5A1.5 1.5 0 0 1 10.5 2z" />
@@ -353,33 +344,44 @@ export function Sidebar() {
             </NavItem>
           </div>
         )}
-      </div>
 
-      {/* New Project */}
-      <button
-        type="button"
-        onClick={openNewProjectModal}
-        className="flex items-center gap-[6px] px-4 py-2 text-[12px] transition-colors"
-        style={{
-          color: 'var(--text-3)',
-          borderTop: '1px solid var(--border)',
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+        {/* Settings */}
+        <div className="h-px my-2" style={{ background: 'var(--border)' }} />
+
+        <div
+          className="text-[11px] font-semibold uppercase tracking-[0.06em] px-2 pb-[6px] pt-1"
+          style={{ color: isSettingsActive ? 'var(--accent)' : 'var(--text-3)' }}
         >
-          <line x1="8" y1="3" x2="8" y2="13" />
-          <line x1="3" y1="8" x2="13" y2="8" />
-        </svg>
-        New Project
-      </button>
+          Settings
+        </div>
+        <div className="flex flex-col gap-[1px]">
+          <NavItem
+            href="/settings/ai-models"
+            label="AI Model Settings"
+            active={isActive('/settings/ai-models')}
+            sub
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="8" cy="8" r="3" />
+              <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" />
+            </svg>
+          </NavItem>
+          <NavItem
+            href="/settings/project-context"
+            label="Project Context"
+            active={isActive('/settings/project-context')}
+            sub
+            badge="Beta"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 2h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+              <line x1="5" y1="6" x2="11" y2="6" />
+              <line x1="5" y1="9" x2="9" y2="9" />
+              <line x1="5" y1="12" x2="7" y2="12" />
+            </svg>
+          </NavItem>
+        </div>
+      </div>
 
       {/* Footer */}
       <div className="p-2" style={{ borderTop: '1px solid var(--border)' }}>
@@ -410,10 +412,11 @@ interface NavItemProps {
   label: string
   active: boolean
   sub?: boolean
+  badge?: string
   children: React.ReactNode
 }
 
-function NavItem({ href, label, active, sub = false, children }: NavItemProps) {
+function NavItem({ href, label, active, sub = false, badge, children }: NavItemProps) {
   return (
     <Link
       href={href}
@@ -431,7 +434,20 @@ function NavItem({ href, label, active, sub = false, children }: NavItemProps) {
       }}
     >
       <span className="w-[14px] h-[14px] shrink-0">{children}</span>
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <span
+          className="text-[9px] font-semibold px-[5px] py-[1px] rounded-full tracking-[0.04em]"
+          style={{
+            background: active ? 'rgba(99,102,241,0.15)' : 'var(--surface-2)',
+            color: active ? 'var(--accent)' : 'var(--text-3)',
+            border: '1px solid currentColor',
+            opacity: 0.8,
+          }}
+        >
+          {badge}
+        </span>
+      )}
     </Link>
   )
 }
