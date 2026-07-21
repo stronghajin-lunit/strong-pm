@@ -21,12 +21,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // ─── Jira Versions ────────────────────────────────────────────────────────────
 
 interface JiraVersionsResponse {
-  versions: { id: string; label: string }[]
+  versions: { id: string; label: string; release_date?: string | null }[]
 }
 
 export async function fetchJiraVersions(): Promise<JiraVersionOption[]> {
   const data = await apiFetch<JiraVersionsResponse>('/api/v1/jira-versions')
-  return data.versions
+  return data.versions.map((v) => ({ id: v.id, label: v.label, release_date: v.release_date }))
 }
 
 // ─── Release Notes ────────────────────────────────────────────────────────────

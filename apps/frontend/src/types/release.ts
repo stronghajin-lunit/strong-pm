@@ -5,6 +5,7 @@ export type ReleaseRunStatus = 'running' | 'done' | 'error'
 export interface JiraVersionOption {
   id: string
   label: string
+  release_date?: string | null
 }
 
 export interface ConfluenceFolderOption {

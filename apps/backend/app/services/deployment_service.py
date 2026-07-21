@@ -49,7 +49,14 @@ async def run(db: AsyncSession, jira_version_id: str) -> DeploymentDetailRespons
     )
     version_record = versions[0]
 
-    github_result = await fetch_deployment_data(jira_version_id, list(ticket_id_map.keys()))
+    version_date: datetime | None = None
+    if version_data.release_date:
+        try:
+            version_date = datetime.fromisoformat(version_data.release_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+    github_result = await fetch_deployment_data(jira_version_id, list(ticket_id_map.keys()), version_date=version_date)
 
     repo_names = [_parse_repo_name(r)[0] for r in github_result.repos]
     repo_id_map = await repo_crud.upsert_many(db, repo_names)

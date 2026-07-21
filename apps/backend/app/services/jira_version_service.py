@@ -10,7 +10,7 @@ async def list_versions(db: AsyncSession) -> JiraVersionListResponse:
     raw = await jira.fetch_fix_versions()
     await jira_version_crud.upsert_many(db, [(v.jira_id, v.label, v.synced_at) for v in raw])
     await db.commit()
-    return JiraVersionListResponse(versions=[JiraVersionItem(id=v.jira_id, label=v.label) for v in raw])
+    return JiraVersionListResponse(versions=[JiraVersionItem(id=v.jira_id, label=v.label, release_date=v.release_date) for v in raw])
 
 
 async def resolve_version_label(jira_id: str) -> str:

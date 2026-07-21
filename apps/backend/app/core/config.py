@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # Optional Anthropic-compatible gateway base URL; empty = public Anthropic API.
     ANTHROPIC_BASE_URL: str = ""
 
+    # GitHub — personal access token for Deployment Tracker PR lookups.
+    GITHUB_TOKEN: str = ""
+    # Comma-separated "owner/repo" list scanned by the Deployment Tracker.
+    GITHUB_REPOS: str = "lunit-io/aip-oncology,lunit-io/scope-aba-server,lunit-io/scope-dp-annotation-manager,lunit-io/scope-dp-auth-manager,lunit-io/scope-dp-image-server,lunit-io/oncology-data-management,lunit-io/scope-annotation-tool-front,lunit-io/scope-dp-console"
+
     # Jira Ticket Writer — project key used when creating issues (default: RAD).
     JIRA_TICKET_PROJECT_KEY: str = "RAD"
     # Version Assignment — JQL project identifier for unversioned ticket search.

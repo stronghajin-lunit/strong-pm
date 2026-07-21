@@ -59,10 +59,10 @@ describe('DeploymentForm', () => {
       expect(within(select).getByText(/ODM Monthly/)).toBeInTheDocument()
     })
 
-    it('초기 상태에서 빈 상태(Empty state)를 렌더링한다', () => {
+    it('초기 상태에서 결과 영역이 표시되지 않는다', () => {
       render(<DeploymentForm versionOptions={MOCK_VERSIONS} deploymentData={MOCK_DATA} />)
 
-      expect(screen.getByTestId('dt-empty-state')).toBeInTheDocument()
+      expect(screen.queryByTestId('dt-results')).not.toBeInTheDocument()
     })
 
     it('버전 미선택 시 Run 버튼이 비활성화된다', () => {
@@ -87,7 +87,6 @@ describe('DeploymentForm', () => {
       fireEvent.change(screen.getByTestId('dt-version-select'), { target: { value: 'aicp-0401' } })
       fireEvent.click(screen.getByTestId('dt-run-btn'))
 
-      expect(screen.queryByTestId('dt-empty-state')).not.toBeInTheDocument()
       expect(screen.getByTestId('dt-results')).toBeInTheDocument()
     })
 

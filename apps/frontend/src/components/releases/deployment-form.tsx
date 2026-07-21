@@ -9,6 +9,27 @@ import type {
   TicketRow,
 } from '@/types/release'
 
+function sliceVersionsByDate(versions: JiraVersionOption[]): JiraVersionOption[] {
+  const dated = versions
+    .map((v, originalIndex) => ({ v, originalIndex, date: v.release_date ? new Date(v.release_date).getTime() : null }))
+    .filter((x): x is { v: JiraVersionOption; originalIndex: number; date: number } => x.date !== null)
+    .sort((a, b) => a.date - b.date)
+
+  if (dated.length === 0) return versions
+
+  const now = Date.now()
+  let closestIdx = 0
+  let minDiff = Math.abs(dated[0].date - now)
+  for (let i = 1; i < dated.length; i++) {
+    const diff = Math.abs(dated[i].date - now)
+    if (diff < minDiff) { minDiff = diff; closestIdx = i }
+  }
+
+  const sliced = dated.slice(Math.max(0, closestIdx - 6), closestIdx + 7)
+  const undated = versions.filter((v) => !v.release_date)
+  return [...sliced.map((x) => x.v), ...undated]
+}
+
 interface DeploymentFormProps {
   versionOptions: JiraVersionOption[]
   deploymentData?: Record<string, DeploymentResult>
@@ -31,6 +52,7 @@ const STAT_LABEL_COLOR: Record<string, string> = {
 }
 
 export function DeploymentForm({ versionOptions, deploymentData, onRun, onRunComplete, initialResult }: DeploymentFormProps) {
+  const filteredVersionOptions = sliceVersionsByDate(versionOptions)
   const [selectedVersionId, setSelectedVersionId] = useState('')
   const [result, setResult] = useState<DeploymentResult | null>(initialResult ?? null)
   const [activeFilter, setActiveFilter] = useState<DeploymentFilter>('all')
@@ -98,7 +120,7 @@ export function DeploymentForm({ versionOptions, deploymentData, onRun, onRunCom
             }}
           >
             <option value="">— Select version —</option>
-            {versionOptions.map((v) => (
+            {filteredVersionOptions.map((v) => (
               <option key={v.id} value={v.id}>{v.label}</option>
             ))}
           </select>
@@ -133,7 +155,7 @@ export function DeploymentForm({ versionOptions, deploymentData, onRun, onRunCom
       </div>}
 
       {/* Results */}
-      {result ? (
+      {result && (
         <div data-testid="dt-results">
           <div
             className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-[9px]"
@@ -228,6 +250,37 @@ export function DeploymentForm({ versionOptions, deploymentData, onRun, onRunCom
                 ✓ All tickets have linked PRs
               </p>
             )}
+
+            {/* Previously deployed tickets (in this version but PR already shipped in a prior release) */}
+            {result.stats.deployedPrev > 0 && (() => {
+              const prevTickets = result.ticketRows
+                .filter((t) => t.status === 'deployed-prev')
+                .map((t) => t.id)
+              return (
+                <div className="mt-2" data-testid="dt-prev-deployed">
+                  <div
+                    className="text-[11px] font-semibold uppercase tracking-[0.05em] mb-[4px]"
+                    style={{ color: 'var(--text-3)' }}
+                  >
+                    Previously deployed — {prevTickets.length} ticket{prevTickets.length !== 1 ? 's' : ''}
+                  </div>
+                  <p className="text-[11px] mb-[5px]" style={{ color: 'var(--text-3)' }}>
+                    These tickets are in this Jira version but their PRs were already included in an earlier release.
+                  </p>
+                  <div className="flex flex-wrap gap-[5px]">
+                    {prevTickets.map((t) => (
+                      <span
+                        key={t}
+                        className="text-[11px] font-mono rounded-[5px] px-[7px] py-[2px]"
+                        style={{ background: '#FAEEDA', color: '#854F0B' }}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Unregistered PRs */}
             {result.unregisteredPRs.count > 0 && (
@@ -361,33 +414,6 @@ export function DeploymentForm({ versionOptions, deploymentData, onRun, onRunCom
               </tbody>
             </table>
           </div>
-        </div>
-      ) : (
-        /* Empty state */
-        <div
-          data-testid="dt-empty-state"
-          className="rounded-[12px] p-[40px_20px] text-center"
-          style={{ background: 'var(--surface)', border: '1px dashed var(--border-md)' }}
-        >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            width="28"
-            height="28"
-            className="mx-auto mb-[10px] opacity-40"
-            style={{ color: 'var(--text-3)' }}
-          >
-            <circle cx="8" cy="8" r="6" />
-            <path d="M8 5v3l2 2" />
-          </svg>
-          <p className="text-[13px] font-medium mb-1" style={{ color: 'var(--text-3)' }}>
-            No results yet
-          </p>
-          <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
-            Select a Jira version and click Run to analyze deployment status.
-          </p>
         </div>
       )}
     </div>
