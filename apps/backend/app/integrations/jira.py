@@ -223,21 +223,73 @@ async def _search_issues(jira_version_id: str) -> list[JiraTicketData]:
 
 
 def _to_adf_doc(text: str) -> dict[str, Any]:
-    """Wrap plain text into a minimal Atlassian Document Format (ADF) document."""
-    paragraphs: list[dict[str, Any]] = []
+    """Convert structured plain text to ADF with bold section headers and bullet lists.
+
+    Sections (lines with no bullet prefix) become bold paragraphs.
+    Content lines (including those with '- [ ]' or '- ' prefix) become bullet list items.
+    """
+    def _bold_paragraph(label: str) -> dict[str, Any]:
+        return {
+            "type": "paragraph",
+            "content": [{"type": "text", "text": label, "marks": [{"type": "strong"}]}],
+        }
+
+    def _bullet_list(items: list[str]) -> dict[str, Any]:
+        return {
+            "type": "bulletList",
+            "content": [
+                {
+                    "type": "listItem",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": item}],
+                        }
+                    ],
+                }
+                for item in items
+            ],
+        }
+
+    def _strip_bullet(line: str) -> str:
+        for prefix in ("- [ ] ", "- [x] ", "- [X] ", "- "):
+            if line.startswith(prefix):
+                return line[len(prefix):]
+        return line
+
+    nodes: list[dict[str, Any]] = []
+
+    # Split into blank-line-separated blocks; first non-bullet line in each block = header
+    blocks: list[list[str]] = []
+    current_block: list[str] = []
     for line in text.splitlines():
-        paragraphs.append(
-            {
-                "type": "paragraph",
-                "content": [{"type": "text", "text": line or " "}],
-            }
-        )
+        stripped = line.strip()
+        if not stripped:
+            if current_block:
+                blocks.append(current_block)
+                current_block = []
+        else:
+            current_block.append(stripped)
+    if current_block:
+        blocks.append(current_block)
+
+    for block in blocks:
+        if not block:
+            continue
+        first = block[0]
+        rest = block[1:]
+        is_first_bullet = first.startswith("- ")
+        if not is_first_bullet:
+            nodes.append(_bold_paragraph(first))
+            if rest:
+                nodes.append(_bullet_list([_strip_bullet(ln) for ln in rest]))
+        else:
+            nodes.append(_bullet_list([_strip_bullet(ln) for ln in block]))
+
     return {
         "version": 1,
         "type": "doc",
-        "content": paragraphs or [
-            {"type": "paragraph", "content": [{"type": "text", "text": " "}]}
-        ],
+        "content": nodes or [{"type": "paragraph", "content": [{"type": "text", "text": " "}]}],
     }
 
 
