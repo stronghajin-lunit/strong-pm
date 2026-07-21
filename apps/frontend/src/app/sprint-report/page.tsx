@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<RunStatus, { label: string; bg: string; color: strin
   error:   { label: 'Error',   bg: '#FAECE7', color: '#993C1D' },
 }
 
-const COLS = ['Jira Sprint', 'Requested', 'Completed', 'Status', 'Link']
+const COLS = ['ID', 'Jira Sprint', 'Requested', 'Completed', 'Status', 'Link']
 
 export default function SprintReportPage() {
   const setTopbarTitle = useUIStore((s) => s.setTopbarTitle)
@@ -29,9 +29,12 @@ export default function SprintReportPage() {
     void fetchSprintReports().then(setHistory).catch(() => setHistory([]))
   }, [setTopbarTitle])
 
-  const handleRunComplete = (record: SprintRunRecord) => {
-    setHistory((prev) => [record, ...prev])
+  const handleRun = (temp: SprintRunRecord, promise: Promise<SprintRunRecord>) => {
+    setHistory((prev) => [temp, ...prev])
     router.push('/sprint-report')
+    void promise
+      .then((record) => setHistory((prev) => prev.map((r) => (r.id === temp.id ? record : r))))
+      .catch(() => setHistory((prev) => prev.map((r) => (r.id === temp.id ? { ...r, status: 'error' } : r))))
   }
 
   if (view === 'create') {
@@ -56,7 +59,7 @@ export default function SprintReportPage() {
         <div className="max-w-[780px]">
           <SprintReportForm
             sprintOptions={sprintOptions}
-            onRunComplete={handleRunComplete}
+            onRun={handleRun}
           />
         </div>
       </div>
@@ -140,6 +143,7 @@ export default function SprintReportPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                 >
+                  <td className="px-[14px] py-[11px] text-[11px] font-mono whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.id}</td>
                   <td className="px-[14px] py-[11px] text-[12px] font-medium">
                     {record.sprintLabel}
                   </td>

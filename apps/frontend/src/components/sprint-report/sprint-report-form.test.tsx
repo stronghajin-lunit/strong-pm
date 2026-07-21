@@ -83,26 +83,32 @@ describe('SprintReportForm', () => {
       expect(screen.getByTestId('run-btn')).toHaveTextContent('Running...')
     })
 
-    it('Run 성공 시 onRunComplete가 record와 함께 호출된다', async () => {
-      const onRunComplete = vi.fn()
-      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} onRunComplete={onRunComplete} />)
+    it('Run 클릭 시 onRun이 running temp record와 함께 즉시 호출된다', () => {
+      const onRun = vi.fn()
+      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} onRun={onRun} />)
       fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
       fireEvent.change(screen.getByTestId('confluence-url-input'), {
         target: { value: 'https://lunit.atlassian.net/wiki/pages/99999' },
       })
       fireEvent.click(screen.getByTestId('run-btn'))
-      await waitFor(() => expect(onRunComplete).toHaveBeenCalledWith(MOCK_RECORD))
+      expect(onRun).toHaveBeenCalledTimes(1)
+      const [temp, promise] = onRun.mock.calls[0] as [{ status: string; sprintLabel: string }, Promise<unknown>]
+      expect(temp).toMatchObject({ status: 'running', sprintLabel: expect.any(String) })
+      expect(promise).toBeInstanceOf(Promise)
     })
 
-    it('Run 실패 시 에러 메시지가 표시된다', async () => {
+    it('Run 실패 시 onRun의 promise가 reject된다', async () => {
       vi.mocked(sprintReportsApi.runSprintReport).mockRejectedValue(new Error('JIRA_UPSTREAM_ERROR'))
-      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} />)
+      const onRun = vi.fn()
+      render(<SprintReportForm sprintOptions={MOCK_SPRINT_OPTIONS} onRun={onRun} />)
       fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
       fireEvent.change(screen.getByTestId('confluence-url-input'), {
         target: { value: 'https://lunit.atlassian.net/wiki/pages/99999' },
       })
       fireEvent.click(screen.getByTestId('run-btn'))
-      await waitFor(() => expect(screen.getByTestId('run-error')).toBeInTheDocument())
+      expect(onRun).toHaveBeenCalledTimes(1)
+      const [, promise] = onRun.mock.calls[0] as [unknown, Promise<unknown>]
+      await expect(promise).rejects.toThrow('JIRA_UPSTREAM_ERROR')
     })
   })
 })

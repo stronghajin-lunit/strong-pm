@@ -62,11 +62,10 @@ describe('ReleaseNoteForm', () => {
       expect(screen.getByTestId('run-btn')).toHaveTextContent('Running...')
     })
 
-    it('2.5초 후 onRunComplete가 Done 레코드와 함께 호출된다', () => {
-      vi.useFakeTimers()
-      const onRunComplete = vi.fn()
+    it('Run 클릭 시 onRun이 running temp 레코드와 함께 즉시 호출된다', () => {
+      const onRun = vi.fn()
       render(
-        <ReleaseNoteForm confluenceFolders={MOCK_CONFLUENCE_FOLDERS} onRunComplete={onRunComplete} />,
+        <ReleaseNoteForm confluenceFolders={MOCK_CONFLUENCE_FOLDERS} onRun={onRun} />,
       )
 
       fireEvent.change(screen.getByTestId('jira-version-input'), {
@@ -74,25 +73,17 @@ describe('ReleaseNoteForm', () => {
       })
       fireEvent.click(screen.getByTestId('run-btn'))
 
-      expect(onRunComplete).not.toHaveBeenCalled()
-
-      act(() => { vi.advanceTimersByTime(2500) })
-
-      expect(onRunComplete).toHaveBeenCalledTimes(1)
-      expect(onRunComplete).toHaveBeenCalledWith(
-        expect.objectContaining({
-          jiraVersion: 'AICP Monthly 26-04-01',
-          status: 'done',
-          confluenceUrl: '#',
-        }),
-      )
+      expect(onRun).toHaveBeenCalledTimes(1)
+      const [temp, promise] = onRun.mock.calls[0] as [{ jiraVersion: string; status: string }, Promise<unknown>]
+      expect(temp).toMatchObject({ jiraVersion: 'AICP Monthly 26-04-01', status: 'running' })
+      expect(promise).toBeInstanceOf(Promise)
     })
 
-    it('Run 후 1초에는 onRunComplete가 아직 호출되지 않는다', () => {
+    it('onRun의 promise는 2.5초 후에 Done 레코드로 resolve된다', async () => {
       vi.useFakeTimers()
-      const onRunComplete = vi.fn()
+      const onRun = vi.fn()
       render(
-        <ReleaseNoteForm confluenceFolders={MOCK_CONFLUENCE_FOLDERS} onRunComplete={onRunComplete} />,
+        <ReleaseNoteForm confluenceFolders={MOCK_CONFLUENCE_FOLDERS} onRun={onRun} />,
       )
 
       fireEvent.change(screen.getByTestId('jira-version-input'), {
@@ -100,9 +91,11 @@ describe('ReleaseNoteForm', () => {
       })
       fireEvent.click(screen.getByTestId('run-btn'))
 
-      act(() => { vi.advanceTimersByTime(1000) })
+      const [, promise] = onRun.mock.calls[0] as [unknown, Promise<{ status: string; confluenceUrl: string }>]
 
-      expect(onRunComplete).not.toHaveBeenCalled()
+      act(() => { vi.advanceTimersByTime(2500) })
+      const record = await promise
+      expect(record).toMatchObject({ jiraVersion: 'AICP Monthly 26-04-01', status: 'done', confluenceUrl: '#' })
     })
   })
 })

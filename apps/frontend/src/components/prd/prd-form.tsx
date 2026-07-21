@@ -7,10 +7,10 @@ import { useProjectStore } from '@/stores/project-store'
 import type { PrdRunRecord } from '@/types/prd'
 
 interface PrdFormProps {
-  onRunComplete?: (record: PrdRunRecord) => void
+  onRun?: (temp: PrdRunRecord, promise: Promise<PrdRunRecord>) => void
 }
 
-export function PrdForm({ onRunComplete }: PrdFormProps) {
+export function PrdForm({ onRun }: PrdFormProps) {
   const projects = useProjectStore((s) => s.projects)
 
   const [projectId, setProjectId]         = useState('')
@@ -45,23 +45,29 @@ export function PrdForm({ onRunComplete }: PrdFormProps) {
 
   const canRun = projectId !== '' && selectedTeams.length > 0 && kickoffUrl.trim() !== '' && prdPageUrl.trim() !== ''
 
-  const handleRun = async () => {
+  const handleRun = () => {
     if (!canRun) return
     setIsRunning(true)
-    setError(null)
-    try {
-      const record = await runPrd({
-        project_id: projectId,
-        target_teams: selectedTeams,
-        kickoff_url: kickoffUrl.trim(),
-        prd_page_url: prdPageUrl.trim(),
-      })
-      onRunComplete?.(record)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-    } finally {
-      setIsRunning(false)
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const tempRecord: PrdRunRecord = {
+      id: `temp-${Date.now()}`,
+      projectId,
+      projectName: projects.find((p) => p.id === projectId)?.name ?? '',
+      targetTeams: selectedTeams,
+      kickoffUrl: kickoffUrl.trim(),
+      prdPageUrl: prdPageUrl.trim(),
+      requestedAt: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      status: 'running',
+      confluenceUrl: null,
     }
+    const promise = runPrd({
+      project_id: projectId,
+      target_teams: selectedTeams,
+      kickoff_url: kickoffUrl.trim(),
+      prd_page_url: prdPageUrl.trim(),
+    })
+    onRun?.(tempRecord, promise)
   }
 
   return (

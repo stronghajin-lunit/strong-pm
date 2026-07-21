@@ -126,9 +126,9 @@ describe('JiraTicketForm', () => {
       expect(screen.getByTestId('run-btn')).toHaveTextContent('Running...')
     })
 
-    it('Run 성공 시 onRunComplete가 record와 함께 호출된다', async () => {
-      const onRunComplete = vi.fn()
-      render(<JiraTicketForm onRunComplete={onRunComplete} />)
+    it('Run 클릭 시 onRun이 running temp record와 함께 즉시 호출된다', async () => {
+      const onRun = vi.fn()
+      render(<JiraTicketForm onRun={onRun} />)
       fireEvent.change(screen.getByTestId('product-select'), { target: { value: 'ODM' } })
       await waitFor(() => screen.getByText('Onco Sprint 79'))
       fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
@@ -136,13 +136,16 @@ describe('JiraTicketForm', () => {
       fireEvent.change(screen.getByTestId('dod-input'), { target: { value: '완료 조건' } })
 
       fireEvent.click(screen.getByTestId('run-btn'))
-      await waitFor(() => expect(onRunComplete).toHaveBeenCalledWith(MOCK_RECORD))
+      expect(onRun).toHaveBeenCalledTimes(1)
+      const [temp, promise] = onRun.mock.calls[0] as [{ status: string; type: string }, Promise<unknown>]
+      expect(temp).toMatchObject({ status: 'running', type: 'Task' })
+      expect(promise).toBeInstanceOf(Promise)
     })
 
-    it('Run 실패 시 에러 메시지가 표시된다', async () => {
+    it('Run 실패 시 onRun의 promise가 reject된다', async () => {
       vi.mocked(jiraTicketsApi.runJiraTicket).mockRejectedValue(new Error('INVALID_PRODUCT'))
-
-      render(<JiraTicketForm />)
+      const onRun = vi.fn()
+      render(<JiraTicketForm onRun={onRun} />)
       fireEvent.change(screen.getByTestId('product-select'), { target: { value: 'ODM' } })
       await waitFor(() => screen.getByText('Onco Sprint 79'))
       fireEvent.change(screen.getByTestId('sprint-select'), { target: { value: '101' } })
@@ -150,7 +153,8 @@ describe('JiraTicketForm', () => {
       fireEvent.change(screen.getByTestId('dod-input'), { target: { value: '완료 조건' } })
 
       fireEvent.click(screen.getByTestId('run-btn'))
-      await waitFor(() => expect(screen.getByTestId('run-error')).toBeInTheDocument())
+      const [, promise] = onRun.mock.calls[0] as [unknown, Promise<unknown>]
+      await expect(promise).rejects.toThrow('INVALID_PRODUCT')
     })
   })
 })

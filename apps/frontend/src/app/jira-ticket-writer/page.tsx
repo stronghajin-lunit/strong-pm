@@ -30,9 +30,12 @@ export default function JiraTicketWriterPage() {
     void fetchJiraTicketRuns().then(setHistory)
   }, [setTopbarTitle])
 
-  const handleRunComplete = (record: JiraTicketRunRecord) => {
-    setHistory((prev) => [record, ...prev])
+  const handleRun = (temp: JiraTicketRunRecord, promise: Promise<JiraTicketRunRecord>) => {
+    setHistory((prev) => [temp, ...prev])
     router.push('/jira-ticket-writer')
+    void promise
+      .then((record) => setHistory((prev) => prev.map((r) => (r.id === temp.id ? record : r))))
+      .catch(() => setHistory((prev) => prev.map((r) => (r.id === temp.id ? { ...r, status: 'error' } : r))))
   }
 
   if (view === 'create') {
@@ -54,7 +57,7 @@ export default function JiraTicketWriterPage() {
           <h2 className="text-[18px] font-semibold tracking-[-0.3px]">New Jira Ticket</h2>
         </div>
 
-        <JiraTicketForm onRunComplete={handleRunComplete} />
+        <JiraTicketForm onRun={handleRun} />
       </div>
     )
   }
@@ -89,7 +92,7 @@ export default function JiraTicketWriterPage() {
         <table className="w-full border-collapse">
           <thead>
             <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-              {['Summary', 'Sprint', 'Type', 'Requested', 'Status', 'Link'].map((col) => (
+              {['ID', 'Summary', 'Sprint', 'Type', 'Requested', 'Status', 'Link'].map((col) => (
                 <th
                   key={col}
                   className="text-left px-[14px] py-2"
@@ -109,7 +112,7 @@ export default function JiraTicketWriterPage() {
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="py-10 flex flex-col items-center gap-2">
                     <svg
                       viewBox="0 0 16 16"
@@ -154,6 +157,7 @@ export default function JiraTicketWriterPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                 >
+                  <td className="px-[14px] py-[11px] text-[11px] font-mono whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.id}</td>
                   <td className="px-[14px] py-[11px] text-[12px]" style={{ color: 'var(--text-2)', maxWidth: 300 }}>
                     <span className="block truncate">{record.summary}</span>
                   </td>

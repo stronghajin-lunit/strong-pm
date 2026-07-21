@@ -11,51 +11,54 @@ import { runReleaseNote } from '@/api/releases'
 interface ReleaseNoteFormProps {
   confluenceFolders: ConfluenceFolderOption[]
   versionOptions?: JiraVersionOption[]
-  onRunComplete?: (record: ReleaseNoteRunRecord) => void
+  onRun?: (temp: ReleaseNoteRunRecord, promise: Promise<ReleaseNoteRunRecord>) => void
 }
 
-export function ReleaseNoteForm({ confluenceFolders, versionOptions, onRunComplete }: ReleaseNoteFormProps) {
+export function ReleaseNoteForm({ confluenceFolders, versionOptions, onRun }: ReleaseNoteFormProps) {
   const [jiraVersion, setJiraVersion]               = useState('')
   const [selectedVersionId, setSelectedVersionId]   = useState('')
   const [confluenceFolderId, setConfluenceFolderId] = useState('')
   const [isRunning, setIsRunning]                   = useState(false)
 
   const useRealApi = versionOptions !== undefined
+  const filteredVersionOptions = useRealApi ? sliceVersionsByDate(versionOptions) : undefined
   const canRun = useRealApi ? selectedVersionId !== '' : jiraVersion.trim() !== ''
 
-  const handleRun = async () => {
+  const handleRun = () => {
     if (!canRun) return
+    setIsRunning(true)
 
     if (useRealApi) {
       const pageId = confluenceFolderId || confluenceFolders[0]?.id || ''
-      setIsRunning(true)
-      try {
-        const record = await runReleaseNote(selectedVersionId, pageId)
-        onRunComplete?.(record)
-      } finally {
-        setIsRunning(false)
+      const selectedVersion = filteredVersionOptions?.find((v) => v.id === selectedVersionId)
+      const tempRecord: ReleaseNoteRunRecord = {
+        id: `temp-${Date.now()}`,
+        jiraVersion: selectedVersion?.label ?? selectedVersionId,
+        confluenceLocation: confluenceFolders.find((f) => f.id === pageId)?.label ?? '',
+        requestedAt: nowStr(),
+        status: 'running',
+        confluenceUrl: null,
       }
+      const promise = runReleaseNote(selectedVersionId, pageId)
+      onRun?.(tempRecord, promise)
     } else {
       const folder =
         confluenceFolders.find((f) => f.id === confluenceFolderId)?.label ??
         'Default (Release Notes root)'
-
-      const newRecord: ReleaseNoteRunRecord = {
-        id: `rn-${Date.now()}`,
+      const tempRecord: ReleaseNoteRunRecord = {
+        id: `temp-${Date.now()}`,
         jiraVersion: jiraVersion.trim(),
         confluenceLocation: folder,
         requestedAt: nowStr(),
         status: 'running',
         confluenceUrl: null,
       }
-
-      setIsRunning(true)
-
-      setTimeout(() => {
-        const completedRecord: ReleaseNoteRunRecord = { ...newRecord, status: 'done', confluenceUrl: '#' }
-        setIsRunning(false)
-        onRunComplete?.(completedRecord)
-      }, 2500)
+      const promise = new Promise<ReleaseNoteRunRecord>((resolve) => {
+        setTimeout(() => {
+          resolve({ ...tempRecord, status: 'done', confluenceUrl: '#' })
+        }, 2500)
+      })
+      onRun?.(tempRecord, promise)
     }
   }
 
@@ -93,7 +96,7 @@ export function ReleaseNoteForm({ confluenceFolders, versionOptions, onRunComple
                 }}
               >
                 <option value="">— Select version —</option>
-                {versionOptions.map((v) => (
+                {(filteredVersionOptions ?? []).map((v) => (
                   <option key={v.id} value={v.id}>{v.label}</option>
                 ))}
               </select>
@@ -170,6 +173,27 @@ export function ReleaseNoteForm({ confluenceFolders, versionOptions, onRunComple
       </div>
     </div>
   )
+}
+
+function sliceVersionsByDate(versions: JiraVersionOption[]): JiraVersionOption[] {
+  const dated = versions
+    .map((v, originalIndex) => ({ v, originalIndex, date: v.release_date ? new Date(v.release_date).getTime() : null }))
+    .filter((x): x is { v: JiraVersionOption; originalIndex: number; date: number } => x.date !== null)
+    .sort((a, b) => a.date - b.date)
+
+  if (dated.length === 0) return versions
+
+  const now = Date.now()
+  let closestIdx = 0
+  let minDiff = Math.abs(dated[0].date - now)
+  for (let i = 1; i < dated.length; i++) {
+    const diff = Math.abs(dated[i].date - now)
+    if (diff < minDiff) { minDiff = diff; closestIdx = i }
+  }
+
+  const sliced = dated.slice(Math.max(0, closestIdx - 6), closestIdx + 7)
+  const undated = versions.filter((v) => !v.release_date)
+  return [...sliced.map((x) => x.v), ...undated]
 }
 
 function RequiredBadge() {

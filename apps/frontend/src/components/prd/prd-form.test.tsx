@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, act, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import * as prdApi from '@/api/prd'
 import { PrdForm } from './prd-form'
 import type { Project } from '@/types/project'
+import type { PrdTeamOption } from '@/api/prd'
+import type { PrdRunRecord } from '@/types/prd'
 
 const MOCK_PROJECTS: Project[] = [
   {
@@ -28,14 +30,49 @@ const MOCK_PROJECTS: Project[] = [
   },
 ]
 
+const MOCK_TEAMS: PrdTeamOption[] = [
+  { key: 'odm', label: 'ODM Team', description: 'ODM product team' },
+  { key: 'anno', label: 'Annotation Team', description: 'Annotation product team' },
+]
+
+const MOCK_RECORD: PrdRunRecord = {
+  id: 'prd-1',
+  projectId: '1',
+  projectName: 'Payment Module Refactor',
+  targetTeams: ['ODM Team'],
+  kickoffUrl: 'https://confluence.example.com/kickoff',
+  prdPageUrl: 'https://confluence.example.com/prd',
+  requestedAt: '2026-06-01 10:00',
+  status: 'done',
+  confluenceUrl: 'https://confluence.example.com/prd-result',
+}
+
 vi.mock('@/stores/project-store', () => ({
   useProjectStore: (selector: (s: { projects: Project[] }) => unknown) =>
     selector({ projects: MOCK_PROJECTS }),
 }))
 
+vi.mock('@/api/prd', () => ({
+  fetchPrdTeams: vi.fn(),
+  runPrd: vi.fn(),
+  fetchPrdRuns: vi.fn(),
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(prdApi.fetchPrdTeams).mockResolvedValue(MOCK_TEAMS)
+  vi.mocked(prdApi.runPrd).mockResolvedValue(MOCK_RECORD)
+})
+
 afterEach(() => {
   vi.useRealTimers()
 })
+
+async function openTeamDropdownAndSelect(teamLabel: string) {
+  fireEvent.click(screen.getByTestId('target-team-btn'))
+  await waitFor(() => screen.getByText(teamLabel))
+  fireEvent.click(screen.getByText(teamLabel))
+}
 
 describe('PrdForm', () => {
   describe('기본 렌더링', () => {
@@ -48,7 +85,7 @@ describe('PrdForm', () => {
     it('필수 입력 필드가 모두 표시된다', () => {
       render(<PrdForm />)
       expect(screen.getByTestId('project-select')).toBeInTheDocument()
-      expect(screen.getByTestId('target-team-input')).toBeInTheDocument()
+      expect(screen.getByTestId('target-team-btn')).toBeInTheDocument()
       expect(screen.getByTestId('kickoff-url-input')).toBeInTheDocument()
       expect(screen.getByTestId('prd-page-url-input')).toBeInTheDocument()
     })
@@ -70,29 +107,26 @@ describe('PrdForm', () => {
     it('모든 필수 필드를 채우면 Run 버튼이 활성화된다', async () => {
       render(<PrdForm />)
       fireEvent.change(screen.getByTestId('project-select'), { target: { value: '1' } })
-      await userEvent.type(screen.getByTestId('target-team-input'), 'ODM Team')
-      await userEvent.type(screen.getByTestId('kickoff-url-input'), 'https://confluence.example.com/kickoff')
-      await userEvent.type(screen.getByTestId('prd-page-url-input'), 'https://confluence.example.com/prd')
+      await openTeamDropdownAndSelect('ODM Team')
+      fireEvent.change(screen.getByTestId('kickoff-url-input'), { target: { value: 'https://confluence.example.com/kickoff' } })
+      fireEvent.change(screen.getByTestId('prd-page-url-input'), { target: { value: 'https://confluence.example.com/prd' } })
       expect(screen.getByTestId('run-btn')).not.toBeDisabled()
     })
 
     it('project 미선택 시 나머지 필드를 채워도 Run 버튼이 비활성화된다', async () => {
       render(<PrdForm />)
-      await userEvent.type(screen.getByTestId('target-team-input'), 'ODM Team')
-      await userEvent.type(screen.getByTestId('kickoff-url-input'), 'https://confluence.example.com/kickoff')
-      await userEvent.type(screen.getByTestId('prd-page-url-input'), 'https://confluence.example.com/prd')
+      await openTeamDropdownAndSelect('ODM Team')
+      fireEvent.change(screen.getByTestId('kickoff-url-input'), { target: { value: 'https://confluence.example.com/kickoff' } })
+      fireEvent.change(screen.getByTestId('prd-page-url-input'), { target: { value: 'https://confluence.example.com/prd' } })
       expect(screen.getByTestId('run-btn')).toBeDisabled()
     })
   })
 
-  // fake timer가 필요한 테스트는 userEvent 대신 fireEvent를 사용한다.
-  // userEvent는 내부적으로 Promise 기반 타이밍을 사용해 vi.useFakeTimers()와 충돌한다.
   describe('Run 실행 — 결과 표시', () => {
-    it('Run 클릭 시 버튼이 Running... 상태가 된다', () => {
-      vi.useFakeTimers()
+    it('Run 클릭 시 버튼이 Running... 상태가 된다', async () => {
       render(<PrdForm />)
       fireEvent.change(screen.getByTestId('project-select'), { target: { value: '1' } })
-      fireEvent.change(screen.getByTestId('target-team-input'), { target: { value: 'ODM Team' } })
+      await openTeamDropdownAndSelect('ODM Team')
       fireEvent.change(screen.getByTestId('kickoff-url-input'), { target: { value: 'https://confluence.example.com/kickoff' } })
       fireEvent.change(screen.getByTestId('prd-page-url-input'), { target: { value: 'https://confluence.example.com/prd' } })
 
@@ -100,23 +134,22 @@ describe('PrdForm', () => {
       expect(screen.getByTestId('run-btn')).toHaveTextContent('Running...')
     })
 
-    it('Run 클릭 시 onRunComplete가 PrdRunRecord와 함께 호출된다', () => {
-      vi.useFakeTimers()
-      const onRunComplete = vi.fn()
-      render(<PrdForm onRunComplete={onRunComplete} />)
+    it('Run 클릭 시 onRun이 running temp PrdRunRecord와 함께 즉시 호출된다', async () => {
+      const onRun = vi.fn()
+      render(<PrdForm onRun={onRun} />)
       fireEvent.change(screen.getByTestId('project-select'), { target: { value: '1' } })
-      fireEvent.change(screen.getByTestId('target-team-input'), { target: { value: 'ODM Team' } })
+      await openTeamDropdownAndSelect('ODM Team')
       fireEvent.change(screen.getByTestId('kickoff-url-input'), { target: { value: 'https://confluence.example.com/kickoff' } })
       fireEvent.change(screen.getByTestId('prd-page-url-input'), { target: { value: 'https://confluence.example.com/prd' } })
 
       fireEvent.click(screen.getByTestId('run-btn'))
-      act(() => { vi.advanceTimersByTime(2500) })
 
-      expect(onRunComplete).toHaveBeenCalledTimes(1)
-      const record = onRunComplete.mock.calls[0][0]
-      expect(record.projectId).toBe('1')
-      expect(record.projectName).toBe('Payment Module Refactor')
-      expect(record.status).toBe('done')
+      expect(onRun).toHaveBeenCalledTimes(1)
+      const [temp, promise] = onRun.mock.calls[0] as [{ projectId: string; projectName: string; status: string }, Promise<unknown>]
+      expect(temp.projectId).toBe('1')
+      expect(temp.projectName).toBe('Payment Module Refactor')
+      expect(temp.status).toBe('running')
+      expect(promise).toBeInstanceOf(Promise)
     })
   })
 })

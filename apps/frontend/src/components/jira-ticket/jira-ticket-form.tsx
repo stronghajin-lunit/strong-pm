@@ -7,7 +7,7 @@ import { useProjectStore } from '@/stores/project-store'
 import type { JiraProduct, JiraTicketRunRecord, JiraTicketType } from '@/types/jira-ticket'
 
 interface JiraTicketFormProps {
-  onRunComplete?: (record: JiraTicketRunRecord) => void
+  onRun?: (temp: JiraTicketRunRecord, promise: Promise<JiraTicketRunRecord>) => void
 }
 
 const TYPE_CONFIG: Record<JiraTicketType, { bg: string; color: string }> = {
@@ -17,7 +17,7 @@ const TYPE_CONFIG: Record<JiraTicketType, { bg: string; color: string }> = {
 
 const PRODUCTS: JiraProduct[] = ['ODM', 'Annotation Admin', 'Annotation Tool']
 
-export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
+export function JiraTicketForm({ onRun }: JiraTicketFormProps) {
   const projects = useProjectStore((s) => s.projects)
   const [projectId, setProjectId]         = useState('')
   const [product, setProduct]             = useState<JiraProduct | ''>('')
@@ -47,27 +47,31 @@ export function JiraTicketForm({ onRunComplete }: JiraTicketFormProps) {
   const canRun =
     product !== '' && feature.trim() !== '' && dod.trim() !== '' && selectedSprint !== null
 
-  const handleRun = async () => {
+  const handleRun = () => {
     if (!canRun || !product || !selectedSprint) return
     setIsRunning(true)
-    setError(null)
-    try {
-      const record = await runJiraTicket({
-        product,
-        sprint_id: selectedSprint.sprintId,
-        sprint: selectedSprint.label,
-        type,
-        feature_description: feature,
-        definition_of_done: dod,
-        project_id: projectId || undefined,
-      })
-      onRunComplete?.(record)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      setError(msg)
-    } finally {
-      setIsRunning(false)
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const tempRecord: JiraTicketRunRecord = {
+      id: `temp-${Date.now()}`,
+      summary: feature.trim().slice(0, 80),
+      product,
+      sprint: selectedSprint.label,
+      type,
+      requestedAt: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      status: 'running',
+      jiraUrl: null,
     }
+    const promise = runJiraTicket({
+      product,
+      sprint_id: selectedSprint.sprintId,
+      sprint: selectedSprint.label,
+      type,
+      feature_description: feature,
+      definition_of_done: dod,
+      project_id: projectId || undefined,
+    })
+    onRun?.(tempRecord, promise)
   }
 
   return (

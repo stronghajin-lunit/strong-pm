@@ -154,7 +154,7 @@ export default function DeploymentPage() {
         <table className="w-full border-collapse">
           <thead>
             <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-              {['Version', 'Run At', 'Total', 'Deployed', 'No PR', 'Unregistered', ''].map((col) => (
+              {['ID', 'Version', 'Run At', 'Total', 'Deployed', 'No PR', 'Unregistered', ''].map((col) => (
                 <th
                   key={col}
                   className="text-left px-[14px] py-2"
@@ -168,7 +168,7 @@ export default function DeploymentPage() {
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <div className="py-10 flex flex-col items-center gap-2">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" width="28" height="28" className="opacity-30" style={{ color: 'var(--text-3)' }}>
                       <circle cx="8" cy="8" r="6" />
@@ -196,6 +196,7 @@ export default function DeploymentPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = '')}
               >
+                <td className="px-[14px] py-[10px] text-[11px] font-mono whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.id}</td>
                 <td className="px-[14px] py-[10px] text-[12px] font-medium">{record.version}</td>
                 <td className="px-[14px] py-[10px] text-[12px] whitespace-nowrap" style={{ color: 'var(--text-3)' }}>
                   {record.runAt}

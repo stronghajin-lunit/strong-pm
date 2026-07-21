@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<PrdRunStatus, { label: string; bg: string; color: st
   error:   { label: 'Error',   bg: '#FAECE7', color: '#993C1D' },
 }
 
-const COLS = ['Project', 'Target Team', 'Requested', 'Completed', 'Status', 'Link']
+const COLS = ['ID', 'Project', 'Target Team', 'Requested', 'Completed', 'Status', 'Link']
 
 export default function PrdWriterPage() {
   const setTopbarTitle = useUIStore((s) => s.setTopbarTitle)
@@ -27,9 +27,12 @@ export default function PrdWriterPage() {
     void fetchPrdRuns().then(setHistory).catch(() => setHistory([]))
   }, [setTopbarTitle])
 
-  const handleRunComplete = (record: PrdRunRecord) => {
-    setHistory((prev) => [record, ...prev])
+  const handleRun = (temp: PrdRunRecord, promise: Promise<PrdRunRecord>) => {
+    setHistory((prev) => [temp, ...prev])
     router.push('/prd-writer')
+    void promise
+      .then((record) => setHistory((prev) => prev.map((r) => (r.id === temp.id ? record : r))))
+      .catch(() => setHistory((prev) => prev.map((r) => (r.id === temp.id ? { ...r, status: 'error' } : r))))
   }
 
   if (view === 'create') {
@@ -50,7 +53,7 @@ export default function PrdWriterPage() {
           </button>
           <h2 className="text-[18px] font-semibold tracking-[-0.3px]">New PRD</h2>
         </div>
-        <PrdForm onRunComplete={handleRunComplete} />
+        <PrdForm onRun={handleRun} />
       </div>
     )
   }
@@ -116,6 +119,7 @@ export default function PrdWriterPage() {
                   style={idx < history.length - 1 ? { borderBottom: '1px solid var(--border)' } : undefined}
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '')}>
+                  <td className="px-[14px] py-[11px] text-[11px] font-mono whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.id}</td>
                   <td className="px-[14px] py-[11px] text-[12px] font-medium">{record.projectName}</td>
                   <td className="px-[14px] py-[11px]">
                     <div className="flex flex-wrap gap-[4px]">

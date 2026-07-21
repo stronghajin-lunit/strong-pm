@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<ReleaseRunStatus, { label: string; bg: string; color
   error:   { label: 'Error',   bg: '#FAECE7', color: '#993C1D' },
 }
 
-const COLS = ['Jira Version', 'Confluence Location', 'Requested', 'Completed', 'Status', 'Link']
+const COLS = ['ID', 'Jira Version', 'Confluence Location', 'Requested', 'Completed', 'Status', 'Link']
 
 export default function ReleaseNotesPage() {
   const setTopbarTitle = useUIStore((s) => s.setTopbarTitle)
@@ -34,9 +34,12 @@ export default function ReleaseNotesPage() {
     void fetchReleaseNotes().then(setHistory)
   }, [setTopbarTitle])
 
-  const handleRunComplete = (record: ReleaseNoteRunRecord) => {
-    setHistory((prev) => [record, ...prev])
+  const handleRun = (temp: ReleaseNoteRunRecord, promise: Promise<ReleaseNoteRunRecord>) => {
+    setHistory((prev) => [temp, ...prev])
     router.push('/releases/notes')
+    void promise
+      .then((record) => setHistory((prev) => prev.map((r) => (r.id === temp.id ? record : r))))
+      .catch(() => setHistory((prev) => prev.map((r) => (r.id === temp.id ? { ...r, status: 'error' } : r))))
   }
 
   if (view === 'create') {
@@ -62,7 +65,7 @@ export default function ReleaseNotesPage() {
           <ReleaseNoteForm
             confluenceFolders={CONFLUENCE_PAGE_OPTIONS}
             versionOptions={versionOptions}
-            onRunComplete={handleRunComplete}
+            onRun={handleRun}
           />
         </div>
       </div>
@@ -146,6 +149,7 @@ export default function ReleaseNotesPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                 >
+                  <td className="px-[14px] py-[11px] text-[11px] font-mono whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{record.id}</td>
                   <td className="px-[14px] py-[11px] text-[12px] font-medium">
                     {record.jiraVersion}
                   </td>
