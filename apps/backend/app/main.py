@@ -7,14 +7,18 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.db.session import AsyncSessionLocal
 from app.integrations import ai, confluence, jira
 from app.integrations.ai import AIIntegrationError
 from app.integrations.confluence import ConfluenceIntegrationError
 from app.integrations.jira import JiraIntegrationError
+from app.services import ai_settings_service
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    async with AsyncSessionLocal() as db:
+        await ai_settings_service.load_into_cache(db)
     yield
     await jira.aclose()
     await confluence.aclose()

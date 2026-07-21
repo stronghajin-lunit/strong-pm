@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    ai_settings,
     deployments,
     feature_list,
     health,
@@ -31,3 +32,4 @@ api_router.include_router(projects.router, prefix="/projects", tags=["projects"]
 api_router.include_router(prd.router, prefix="/prd", tags=["prd"])
 api_router.include_router(feature_list.router, prefix="/feature-list", tags=["feature-list"])
 api_router.include_router(slack_qa.router, prefix="/slack-qa", tags=["slack-qa"])
+api_router.include_router(ai_settings.router, prefix="/ai-settings", tags=["ai-settings"])
