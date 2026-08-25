@@ -1,5 +1,6 @@
 import asyncio
 import re
+from datetime import UTC, date, datetime
 
 from fastapi import HTTPException
 
@@ -17,28 +18,46 @@ from app.schemas.version_assignment import (
 
 _VERSION_DATE_RE = re.compile(r"(\d{2})-(\d{2})-(\d{2})$")
 _MAX_VERSIONS = 8
+_UNDATED_KEY = "0000-00-00"
 
 
-def _sort_key(v: VersionOption) -> str:
-    """Sort key: releaseDate if available, else parse YY-MM-DD from version name."""
+def _parse_date(v: VersionOption) -> str | None:
+    """Resolve YYYY-MM-DD from releaseDate if available, else the version name."""
     if v.release_date:
         return v.release_date
     m = _VERSION_DATE_RE.search(v.name)
     if m:
         yy, mm, dd = m.groups()
         return f"20{yy}-{mm}-{dd}"
-    return "0000-00-00"
+    return None
+
+
+def _days_from_today(parsed: str | None, today: date) -> int:
+    """Distance in days from today, past or future. Undated versions sort last."""
+    if parsed is None:
+        return 10**9
+    return abs((date.fromisoformat(parsed) - today).days)
 
 
 async def list_versions() -> VersionOptionListResponse:
-    """RAD project Fix Versions, sorted by releaseDate desc, max 8."""
+    """RAD project Fix Versions closest to today, max 8, shown releaseDate desc.
+
+    Versions are picked by proximity to today rather than plain releaseDate desc,
+    so versions planned far in the future (e.g. next quarter's placeholders) don't
+    crowd out the current, closer-to-release version.
+    """
     raw = await jira.fetch_project_versions(settings.JIRA_TICKET_PROJECT_KEY)
     options = [
         VersionOption(id=v.jira_id, name=v.label, release_date=v.release_date)
         for v in raw
     ]
-    options.sort(key=_sort_key, reverse=True)
-    return VersionOptionListResponse(versions=options[:_MAX_VERSIONS])
+
+    today = datetime.now(UTC).date()
+    parsed_dates = {v.id: _parse_date(v) for v in options}
+    options.sort(key=lambda v: _days_from_today(parsed_dates[v.id], today))
+    selected = options[:_MAX_VERSIONS]
+    selected.sort(key=lambda v: parsed_dates[v.id] or _UNDATED_KEY, reverse=True)
+    return VersionOptionListResponse(versions=selected)
 
 
 async def list_unversioned_tickets(period: str) -> UnversionedTicketListResponse:
